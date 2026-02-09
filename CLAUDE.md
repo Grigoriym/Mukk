@@ -4,7 +4,7 @@
 - A desktop music player built with **Kotlin Multiplatform + Compose Desktop**
 - Motivated by dissatisfaction with existing Linux players (AIMP broken on Linux, DeaDBeeF has political issues)
 - Goal: clean media library viewer + player, no bloat
-- Key differentiator: **file-system-based browsing** — two-panel file browser, not a database-driven flat track list
+- Key differentiator: **file-system-based browsing** — AIMP-style folder tree + track list, not a database-driven flat track list
 
 ## Architecture Decisions
 - **UI**: Compose Desktop (Kotlin/JVM) with Material3 dark theme
@@ -31,12 +31,12 @@
 com/grappim/mukk/
 ├── main.kt                  # Entry point: init DB, AudioPlayer, ViewModel, window
 ├── App.kt                   # Root composable: collects state, wires callbacks, file picker
-├── MukkViewModel.kt         # Central ViewModel: file browser state, playback, navigation
+├── MukkViewModel.kt         # Central ViewModel: folder tree state, playback, track selection
 ├── data/
 │   ├── DatabaseInit.kt      # SQLite connection + schema creation (~/.local/share/mukk/library.db)
 │   ├── MediaTracks.kt       # Exposed table definition
 │   ├── MediaTrackEntity.kt  # Exposed entity + MediaTrackData data class + toData()
-│   └── FileBrowserState.kt  # FileEntry + FileBrowserState data classes
+│   └── FileBrowserState.kt  # FileEntry + FolderTreeState data classes
 ├── player/
 │   ├── AudioPlayer.kt       # GStreamer PlayBin wrapper with position polling
 │   └── PlaybackState.kt     # PlaybackState data class + Status enum
@@ -45,46 +45,60 @@ com/grappim/mukk/
 │   └── MetadataReader.kt    # JAudioTagger wrapper returning AudioMetadata
 └── ui/
     ├── MukkTheme.kt         # Material3 dark color scheme
-    ├── MainLayout.kt        # Top-level layout: Sidebar | FileBrowser | NowPlaying / TransportBar
-    ├── Sidebar.kt           # "Library" and "Open Folder" buttons
-    ├── FileBrowserPanel.kt  # Library file browser: breadcrumbs, folder/file rows, navigation
-    ├── NowPlayingFolderPanel.kt  # Album folder panel: shows sibling tracks, auto-scrolls
-    ├── TrackListPanel.kt    # (Legacy) flat track list — not currently wired
+    ├── MainLayout.kt        # Top-level layout: FolderTree | TrackList / TransportBar
+    ├── FolderTreePanel.kt   # Expandable folder tree with "Mukk" header + open folder button
+    ├── TrackListPanel.kt    # Columnar track list (#, File Name, Title, Album, Artist, Duration)
     ├── TransportBar.kt      # Play/pause/stop/skip, seek bar, volume, track info
     └── components/
-        ├── SeekBar.kt       # Seek slider with time labels
+        ├── SeekBar.kt       # Seek slider with time labels + formatTime() helper
         └── VolumeControl.kt # Volume slider with icon
 ```
 
-## UI Architecture — Two-Panel File Browser
-The main content area has two panels side by side:
+## UI Architecture — AIMP-Style Folder Tree + Track List
+Two panels side by side:
 
-1. **Library Browser** (`FileBrowserPanel`) — file/folder tree from the scanned music root. Navigate folders, click files to play. Breadcrumb bar for path navigation.
-2. **Now-Playing Folder** (`NowPlayingFolderPanel`) — shows all audio files in the folder of the currently playing track (i.e. the album). Next/Previous cycle within this folder.
+1. **Folder Tree** (`FolderTreePanel`, fixed 250dp) — expandable tree showing only folders that contain audio files (recursively). Header has "Mukk" title + open folder button. Clicking a folder selects it (shows tracks in right panel). Clicking the expand arrow toggles children.
+2. **Track List** (`TrackListPanel`, fills remaining space) — columnar table of audio files from the selected folder. Columns: #, File Name, Title, Album, Artist, Duration. Playing track is highlighted.
 
 ```
-┌──────────┬──────────────────────┬─────────────────┐
-│ Sidebar  │ Library Browser      │ Now Playing      │
-│          │ music > Artist > Alb │ (Album folder)   │
-│ [Library]│ ..                   │                  │
-│ [Open    │ 📁 SubFolder        │ 01 - Track One ◄ │
-│  Folder] │ 🎵 01 - Song.flac   │ 02 - Track Two   │
-│          │ 🎵 02 - Song.flac   │ 03 - Track Three │
-├──────────┴──────────────────────┴─────────────────┤
-│  ◄◄  ▶/❚❚  ►►  |  ━━━●━━━  |  🔊 ────           │
-└───────────────────────────────────────────────────┘
+┌─────────────────────┬──────────────────────────────────────┐
+│ Mukk          [+ ]  │  #  File Name   Title  Album  Artist │
+│                     │  01 01-Song..  Cheated Time.. Prayi. │
+│ ▾ 📁 music         │  01 01.Can..   Can't.. Preda. Prayi. │
+│   ▸ 📁 Megadeth    │  01 01-Rise..  Rise A. A Cry. Prayi. │
+│   ▸ 📁 Slayer      │  02 02-AllD..  All Da. Time.. Prayi. │
+│   ▾ 📁 Praying M.◄ │  02 02.She'..  She's.. Preda. Prayi. │
+│     📁 Album1      │  ...                                 │
+│     📁 Album2      │                                      │
+├─────────────────────┴──────────────────────────────────────┤
+│  ◄◄  ▶/❚❚  ►►  |  ━━━●━━━  |  🔊 ────                    │
+└────────────────────────────────────────────────────────────┘
 ```
+
+## Key State Models
+- **`FolderTreeState`** — `rootPath`, `expandedPaths: Set<String>`, `selectedPath`
+- **`FileEntry`** — `file: File`, `isDirectory`, `name`, `trackData: MediaTrackData?`
+- **`selectedFolderEntries`** — audio-only `FileEntry` list for the selected folder (no directories)
+- Next/Previous track cycles within `selectedFolderEntries`
 
 ## Key Patterns
 - Audio file extensions: `mp3, flac, ogg, wav, aac, opus, m4a` (defined in both `FileScanner` and `MukkViewModel`)
-- Directory listing sorts: directories first, then audio files by track number, then by name
-- File browser enriches audio files with DB metadata (title, artist, duration) when available
+- Folder tree hides folders with no audio files (recursive check via `containsAudioFiles()` using `walkTopDown()`)
+- Track list enriches audio files with DB metadata (title, artist, duration) when available; shows filename + "-" for unscanned files
+- `getSubfolders()` is passed as a callback to FolderTreePanel and called inside `remember{}` — it's synchronous file I/O, works because tree builds are memoized on `expandedPaths` changes
 - Native file picker: tries zenity → kdialog → Swing JFileChooser fallback
 - DB location: `~/.local/share/mukk/library.db`
 
+## Implementation Notes
+- **Deleted files** (replaced by folder tree approach): `Sidebar.kt`, `FileBrowserPanel.kt`, `NowPlayingFolderPanel.kt`, `FileBrowserState` data class
+- The old breadcrumb navigation (`navigateToDirectory`, `navigateUp`, `navigateToRoot`, `buildPathSegments`) was removed from ViewModel
+- `containsAudioFiles()` uses `walkTopDown()` which can be slow on very large directory trees — may need caching if performance is an issue
+- Pre-existing deprecation: `Icons.Filled.VolumeUp` in TransportBar.kt — should use `Icons.AutoMirrored.Filled.VolumeUp`
+
 ## MVP Features
 1. **Media library scanner** — scan directories recursively, read tags with JAudioTagger, store in SQLite ✅
-2. **File browser UI** — two-panel file-system-based browsing with breadcrumbs ✅
-3. **Audio playback** — play/pause/stop/seek via GStreamer, next/prev within album folder ✅
-4. **Playback controls UI** — transport bar with seek, volume, track info ✅
-5. **Playlist support** — basic playlist management (planned)
+2. **Folder tree UI** — AIMP-style expandable folder tree, hides empty folders ✅
+3. **Track list UI** — columnar table with file name, title, album, artist, duration ✅
+4. **Audio playback** — play/pause/stop/seek via GStreamer, next/prev within selected folder ✅
+5. **Playback controls UI** — transport bar with seek, volume, track info ✅
+6. **Playlist support** — basic playlist management (planned)
