@@ -135,3 +135,6 @@ Replace fixed panel widths (250dp / 280dp) with draggable splitters. Custom drag
 
 ### 4. Configurable track list columns
 Data model for column definitions (visible, width, order). Right-click on column header to toggle columns on/off. Persist column config to PreferencesManager.
+
+### 5. Auto-scan new folders added at runtime
+Currently the folder tree reads the filesystem directly, so new folders appear when expanding/collapsing the tree. However, `FileScanner.scan()` only runs when the user opens a root folder via "Open Folder", so newly added folders have no metadata in the DB (tracks show filenames with no title/artist/album/duration). Need to either: (a) rescan when a folder is selected and has unscanned tracks, or (b) watch the filesystem for changes (`WatchService`), or (c) rely on the rescan button (item #1) as the manual solution.

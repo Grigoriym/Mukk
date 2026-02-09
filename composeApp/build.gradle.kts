@@ -26,7 +26,7 @@ kotlin {
         }
         jvmMain.dependencies {
             implementation(compose.desktop.currentOs)
-            implementation(compose.materialIconsExtended)
+            implementation("org.jetbrains.compose.material:material-icons-extended:1.7.3")
             implementation(libs.kotlinx.coroutinesSwing)
             implementation(libs.exposed.core)
             implementation(libs.exposed.dao)
@@ -44,9 +44,11 @@ compose.desktop {
         mainClass = "com.grappim.mukk.MainKt"
 
         nativeDistributions {
-            targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
-            packageName = "com.grappim.mukk"
+            targetFormats(TargetFormat.Deb, TargetFormat.AppImage)
+            packageName = "mukk"
             packageVersion = "1.0.0"
+            description = "Music player for Linux"
+            vendor = "Grappim"
         }
     }
 }
