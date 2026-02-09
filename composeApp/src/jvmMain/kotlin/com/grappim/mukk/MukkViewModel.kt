@@ -48,6 +48,9 @@ class MukkViewModel(
     private val _currentLyrics = MutableStateFlow<String?>(null)
     val currentLyrics: StateFlow<String?> = _currentLyrics.asStateFlow()
 
+    private val _isScanning = MutableStateFlow(false)
+    val isScanning: StateFlow<Boolean> = _isScanning.asStateFlow()
+
     private var currentTrackIndex: Int = -1
 
     init {
@@ -58,19 +61,42 @@ class MukkViewModel(
 
         loadTracks()
         restoreFolderTreeState()
+        restorePlayingTrack()
     }
 
     fun scanDirectory(path: String) {
         viewModelScope.launch(Dispatchers.IO) {
-            FileScanner.scan(File(path))
-            loadTracks()
-            _folderTreeState.value = FolderTreeState(
-                rootPath = path,
-                expandedPaths = setOf(path),
-                selectedPath = path
-            )
-            loadSelectedFolderEntries(path)
-            saveFolderTreeState()
+            _isScanning.value = true
+            try {
+                FileScanner.scan(File(path))
+                loadTracks()
+                _folderTreeState.value = FolderTreeState(
+                    rootPath = path,
+                    expandedPaths = setOf(path),
+                    selectedPath = path
+                )
+                loadSelectedFolderEntries(path)
+                saveFolderTreeState()
+            } finally {
+                _isScanning.value = false
+            }
+        }
+    }
+
+    fun rescan() {
+        val rootPath = _folderTreeState.value.rootPath ?: return
+        viewModelScope.launch(Dispatchers.IO) {
+            _isScanning.value = true
+            try {
+                FileScanner.scan(File(rootPath))
+                loadTracks()
+                val selectedPath = _folderTreeState.value.selectedPath
+                if (selectedPath != null) {
+                    loadSelectedFolderEntries(selectedPath)
+                }
+            } finally {
+                _isScanning.value = false
+            }
         }
     }
 
@@ -121,6 +147,7 @@ class MukkViewModel(
         val filePath = entry.trackData?.filePath ?: entry.file.absolutePath
         audioPlayer.play(filePath)
         loadNowPlayingExtras(filePath)
+        savePlayingTrack(filePath)
     }
 
     fun playTrack(track: MediaTrackData) {
@@ -129,6 +156,7 @@ class MukkViewModel(
         _selectedTrackPath.value = track.filePath
         audioPlayer.play(track.filePath)
         loadNowPlayingExtras(track.filePath)
+        savePlayingTrack(track.filePath)
     }
 
     fun pause() {
@@ -156,6 +184,7 @@ class MukkViewModel(
         audioPlayer.stop()
         _currentAlbumArt.value = null
         _currentLyrics.value = null
+        clearPlayingTrack()
     }
 
     fun seekTo(positionMs: Long) {
@@ -178,6 +207,7 @@ class MukkViewModel(
         _selectedTrackPath.value = next.file.absolutePath
         audioPlayer.play(next.file.absolutePath)
         loadNowPlayingExtras(next.file.absolutePath)
+        savePlayingTrack(next.file.absolutePath)
     }
 
     fun previousTrack() {
@@ -191,6 +221,29 @@ class MukkViewModel(
         _selectedTrackPath.value = prev.file.absolutePath
         audioPlayer.play(prev.file.absolutePath)
         loadNowPlayingExtras(prev.file.absolutePath)
+        savePlayingTrack(prev.file.absolutePath)
+    }
+
+    private fun savePlayingTrack(filePath: String) {
+        PreferencesManager.set("playingTrack", filePath)
+    }
+
+    private fun clearPlayingTrack() {
+        PreferencesManager.set("playingTrack", "")
+    }
+
+    private fun restorePlayingTrack() {
+        val path = PreferencesManager.getString("playingTrack", "").takeIf { it.isNotEmpty() }
+            ?: return
+        if (!File(path).exists()) return
+
+        audioPlayer.setCurrentTrackPath(path)
+        _selectedTrackPath.value = path
+
+        val entries = _selectedFolderEntries.value
+        currentTrackIndex = entries.indexOfFirst { it.file.absolutePath == path }
+
+        loadNowPlayingExtras(path)
     }
 
     private fun saveFolderTreeState() {

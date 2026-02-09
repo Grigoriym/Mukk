@@ -1,3 +1,5 @@
+@file:OptIn(FlowPreview::class)
+
 package com.grappim.mukk
 
 import androidx.compose.runtime.LaunchedEffect
@@ -9,6 +11,7 @@ import androidx.compose.ui.window.rememberWindowState
 import com.grappim.mukk.data.DatabaseInit
 import com.grappim.mukk.data.PreferencesManager
 import com.grappim.mukk.player.AudioPlayer
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach

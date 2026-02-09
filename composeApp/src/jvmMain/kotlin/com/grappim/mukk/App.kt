@@ -59,6 +59,7 @@ fun App(viewModel: MukkViewModel) {
     val selectedTrackPath by viewModel.selectedTrackPath.collectAsState()
     val albumArt by viewModel.currentAlbumArt.collectAsState()
     val lyrics by viewModel.currentLyrics.collectAsState()
+    val isScanning by viewModel.isScanning.collectAsState()
     val scope = rememberCoroutineScope()
 
     val currentTrack = tracks.firstOrNull { it.filePath == playbackState.currentTrackPath }
@@ -84,8 +85,10 @@ fun App(viewModel: MukkViewModel) {
                 currentTrack = currentTrack,
                 selectedTrackPath = selectedTrackPath,
                 playingFolderPath = playingFolderPath,
+                isScanning = isScanning,
                 onToggleExpand = { path -> viewModel.toggleFolderExpanded(path) },
                 onSelectFolder = { path -> viewModel.selectFolder(path) },
+                onRescanClick = { viewModel.rescan() },
                 onOpenFolderClick = {
                     scope.launch(Dispatchers.IO) {
                         val path = pickDirectoryNative()

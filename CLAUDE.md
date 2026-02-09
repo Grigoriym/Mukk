@@ -59,24 +59,11 @@ com/grappim/mukk/
 ## UI Architecture — Three-Panel Layout
 Three panels side by side, with a transport bar at the bottom:
 
-1. **Folder Tree** (`FolderTreePanel`, fixed 250dp) — expandable tree showing only folders that contain audio files (recursively). Header has "Mukk" title + open folder button. Single-click = select folder (shows tracks), double-click = expand/collapse children. Arrow icon also toggles expand. Playing folder gets subtle highlight + play indicator.
+1. **Folder Tree** (`FolderTreePanel`, default 250dp, resizable 150–450dp) — expandable tree showing only folders that contain audio files (recursively). Header has "Mukk" title + open folder button. Single-click = select folder (shows tracks), double-click = expand/collapse children. Arrow icon also toggles expand. Playing folder gets subtle highlight + play indicator.
 2. **Track List** (`TrackListPanel`, fills remaining space) — columnar table of audio files from the selected folder. Columns: #, File Name, Title, Album, Artist, Duration. Single-click = select/highlight track, double-click = play. Three visual states: playing (primary), selected (surfaceVariant), default.
-3. **Now-Playing Panel** (`NowPlayingPanel`, fixed 280dp) — shows album art (square, rounded corners, placeholder music icon when missing), track metadata (title, artist, album, genre + year), and scrollable lyrics. Album art and lyrics read on-the-fly from audio files via `MetadataReader.readAlbumArt()` / `readLyrics()` when playback starts. Shows "No track playing" placeholder when idle.
+3. **Now-Playing Panel** (`NowPlayingPanel`, default 280dp, resizable 150–450dp) — shows album art (square, rounded corners, placeholder music icon when missing), track metadata (title, artist, album, genre + year), and scrollable lyrics. Album art and lyrics read on-the-fly from audio files via `MetadataReader.readAlbumArt()` / `readLyrics()` when playback starts. Shows "No track playing" placeholder when idle.
 
-```
-┌──────────────────┬──────────────────────────────────┬──────────────┐
-│ Mukk        [+ ] │  #  File Name  Title Album Artist│  [Album Art] │
-│                  │  01 01-Song.. Cheated Time Prayi.│              │
-│ ▾ 📁 music      │  01 01.Can.. Can't.. Pred. Prayi.│  Title       │
-│   ▸ 📁 Megadeth │  01 01-Rise.. Rise A. ACry Prayi.│  Artist      │
-│   ▸ 📁 Slayer   │  02 02-AllD.. All Da. Time Prayi.│  Album       │
-│   ▾ 📁 Pray. M.◄│  02 02.She'.. She's. Pred. Pray.│  Genre · Year│
-│     📁 Album1   │  ...                             │              │
-│     📁 Album2   │                                  │  (lyrics)    │
-├──────────────────┴──────────────────────────────────┴──────────────┤
-│  ◄◄  ▶/❚❚  ►►  |  ━━━●━━━  |  🔊 ────                            │
-└────────────────────────────────────────────────────────────────────┘
-```
+Panel dividers are draggable (`DraggableDivider` in MainLayout.kt) with `E_RESIZE_CURSOR` hover icon. Widths persist to PreferencesManager (`panel.leftWidth`, `panel.rightWidth`).
 
 ## Key State Models
 - **`FolderTreeState`** — `rootPath`, `expandedPaths: Set<String>`, `selectedPath`
@@ -89,20 +76,29 @@ Three panels side by side, with a transport bar at the bottom:
 
 ## Key Patterns
 - Audio file extensions: `mp3, flac, ogg, wav, aac, opus, m4a` (defined in both `FileScanner` and `MukkViewModel`)
-- Folder tree hides folders with no audio files (recursive check via `containsAudioFiles()` using `walkTopDown()`)
+- Folder tree hides folders with no audio files (recursive check via `containsAudioFiles()` using `walkTopDown()` — can be slow on huge trees, may need caching)
 - Track list enriches audio files with DB metadata (title, artist, duration) when available; shows filename + "-" for unscanned files
-- `getSubfolders()` is passed as a callback to FolderTreePanel and called inside `remember{}` — it's synchronous file I/O, works because tree builds are memoized on `expandedPaths` changes
+- `getSubfolders()` is passed as a callback to FolderTreePanel and called inside `remember{}` — synchronous file I/O, memoized on `expandedPaths` changes
 - Native file picker: tries zenity → kdialog → Swing JFileChooser fallback
-- DB location: `~/.local/share/mukk/library.db`
-- Preferences file: `~/.local/share/mukk/preferences.properties` (volume, window size)
-- Global Space key toggles play/pause via `onPreviewKeyEvent` on root `Box` in `App.kt`
 - `combinedClickable` (from `ExperimentalFoundationApi`) used in both `FolderTreePanel` and `TrackListPanel` for single/double-click differentiation
-- Window size persisted via debounced `snapshotFlow` on `WindowState.size` + save on close
+- DB location: `~/.local/share/mukk/library.db`
+- Preferences file: `~/.local/share/mukk/preferences.properties`
 
-## Implementation Notes
-- **Deleted files** (replaced by folder tree approach): `Sidebar.kt`, `FileBrowserPanel.kt`, `NowPlayingFolderPanel.kt`, `FileBrowserState` data class
-- The old breadcrumb navigation (`navigateToDirectory`, `navigateUp`, `navigateToRoot`, `buildPathSegments`) was removed from ViewModel
-- `containsAudioFiles()` uses `walkTopDown()` which can be slow on very large directory trees — may need caching if performance is an issue
+## Callback Flow
+ViewModel exposes functions + StateFlows → `App.kt` collects state via `collectAsState()` and passes lambdas → `MainLayout` forwards to child panels. All UI composables are stateless — they receive data and callbacks as parameters. When adding a new action: add function to ViewModel → wire lambda in App.kt → thread through MainLayout → use in target panel.
+
+## PreferencesManager Keys
+| Key | Type | Default | Location |
+|-----|------|---------|----------|
+| `volume` | Double | `0.8` | MukkViewModel |
+| `window.width` | Int | `1024` | main.kt |
+| `window.height` | Int | `700` | main.kt |
+| `folderTree.rootPath` | String | `""` | MukkViewModel |
+| `folderTree.expandedPaths` | String | `""` | MukkViewModel (`\|`-delimited) |
+| `folderTree.selectedPath` | String | `""` | MukkViewModel |
+| `playingTrack` | String | `""` | MukkViewModel |
+| `panel.leftWidth` | Int | `250` | MainLayout |
+| `panel.rightWidth` | Int | `280` | MainLayout |
 
 ## MVP Features
 1. **Media library scanner** — scan directories recursively, read tags with JAudioTagger, store in SQLite ✅
@@ -112,35 +108,29 @@ Three panels side by side, with a transport bar at the bottom:
 5. **Playback controls UI** — transport bar with seek, volume, track info ✅
 
 ## Completed Features (post-MVP)
-1. **Single-click selects folder, double-click expands** — `combinedClickable` in FolderTreePanel ✅
-2. **Show tracks for folders with subfolders** — resolved by fix #1 (single-click always selects) ✅
-3. **Double-click to play track** — single-click = select/highlight, double-click = play ✅
-4. **Highlight currently playing folder + track** — playing folder highlighted in tree with play icon, playing track highlighted in list ✅
-5. **Global Space key = play/pause** — `onPreviewKeyEvent` in App.kt ✅
-6. **Persist volume** — saved to preferences.properties via PreferencesManager ✅
-7. **Persist window size** — saved/restored via PreferencesManager + snapshotFlow ✅
-8. **Now-playing info panel (third panel)** — album art, metadata (title/artist/album/genre/year), scrollable lyrics via `NowPlayingPanel` ✅
-9. **Persist last opened folder** — saves/restores `rootPath`, `expandedPaths`, `selectedPath` via PreferencesManager (`|`-delimited expanded paths) ✅
+- Single-click selects folder, double-click expands/collapses
+- Double-click to play track, single-click to highlight
+- Highlight currently playing folder + track
+- Global Space key = play/pause
+- Persist volume, window size, last opened folder, currently playing track
+- Now-playing info panel (album art, metadata, lyrics)
+- Right-click context menu on tracks (copy path, open location)
+- Rescan button + scan progress indicator
+- Resizable panels with persisted widths
 
 ## Roadmap / TODO
 
-### 1. Rescan button
-Add a refresh icon in FolderTreePanel header (next to open-folder button). Re-runs `FileScanner.scan()` on current root, reloads entries and track metadata.
-
-### 2. Right-click context menu on tracks
-Context menu on track rows with options: "Copy file", "Open file location" (`xdg-open` on parent dir), "Copy file path to clipboard".
-
-### 3. Resizable panels
-Replace fixed panel widths (250dp / 280dp) with draggable splitters. Custom drag-handle `Modifier` on divider areas. Persist widths to PreferencesManager.
-
-### 4. Configurable track list columns
+### 1. Configurable track list columns
 Data model for column definitions (visible, width, order). Right-click on column header to toggle columns on/off. Persist column config to PreferencesManager.
 
-### 5. Auto-scan new folders added at runtime
+### 2. Auto-scan new folders added at runtime
 Currently the folder tree reads the filesystem directly, so new folders appear when expanding/collapsing the tree. However, `FileScanner.scan()` only runs when the user opens a root folder via "Open Folder", so newly added folders have no metadata in the DB (tracks show filenames with no title/artist/album/duration). Need to either: (a) rescan when a folder is selected and has unscanned tracks, or (b) watch the filesystem for changes (`WatchService`), or (c) rely on the rescan button (item #1) as the manual solution.
 
-### 6. Scan progress indicator
-When opening a new folder (triggering `FileScanner.scan()`), show a progress indicator so the user knows scanning is in progress. Could be a linear progress bar in the folder tree header, a modal/overlay, or inline text showing scanned file count.
+### 3. Settings screen
+Add a settings/preferences UI accessible from the app (e.g., gear icon in the header or a menu). Potential settings to expose over time: audio output device, theme/appearance, default scan directory, playback behavior (e.g., repeat mode, shuffle), column visibility defaults, etc. Use a dialog or a dedicated panel. Persist all settings via PreferencesManager.
 
-### 7. Bug: "Mukk" title missing on first start
-On first launch (no folder opened yet), the "Mukk" title in the top-left corner of FolderTreePanel is not visible. It appears after opening a folder. Likely a layout/visibility issue in FolderTreePanel when there is no root path set.
+### 4. Add dependency injection (Koin)
+Introduce Koin as a lightweight DI framework. Currently all wiring is manual in `main.kt` (AudioPlayer, ViewModel, etc.). As the app grows (settings, more services), a proper DI setup will reduce boilerplate and make dependencies explicit. Koin is the natural choice — pure Kotlin, multiplatform-compatible, no code generation. Define modules for player, data/DB, scanner, and ViewModel layers.
+
+### 5. Add @Preview to composables
+Add `@Preview` annotations to UI composables for faster iteration in the IDE. Requires extracting composables to be previewable — pass data/state as parameters rather than reading from ViewModel directly. Add previews for key screens: FolderTreePanel, TrackListPanel, NowPlayingPanel, TransportBar, SeekBar, VolumeControl. Use sample/mock data for preview states (empty, playing, with lyrics, etc.).

@@ -99,6 +99,10 @@ class AudioPlayer {
         _state.update { it.copy(volume = clamped) }
     }
 
+    fun setCurrentTrackPath(filePath: String) {
+        _state.update { it.copy(currentTrackPath = filePath) }
+    }
+
     fun dispose() {
         stopPositionPolling()
         playBin.stop()

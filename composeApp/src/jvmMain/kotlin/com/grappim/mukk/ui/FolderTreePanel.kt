@@ -4,13 +4,13 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -19,8 +19,10 @@ import androidx.compose.material.icons.filled.CreateNewFolder
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -47,20 +49,34 @@ private data class TreeItem(
 fun FolderTreePanel(
     folderTreeState: FolderTreeState,
     playingFolderPath: String?,
+    isScanning: Boolean,
     onToggleExpand: (String) -> Unit,
     onSelectFolder: (String) -> Unit,
     onOpenFolderClick: () -> Unit,
+    onRescanClick: () -> Unit,
     getSubfolders: (String) -> List<Pair<File, Boolean>>,
     modifier: Modifier = Modifier
 ) {
     val rootPath = folderTreeState.rootPath
 
-    Box(
+    Column(
         modifier = modifier
             .fillMaxHeight()
-            .width(250.dp)
             .background(MaterialTheme.colorScheme.surface)
     ) {
+        HeaderRow(
+            onOpenFolderClick = onOpenFolderClick,
+            onRescanClick = onRescanClick,
+            showRescan = rootPath != null
+        )
+
+        if (isScanning) {
+            LinearProgressIndicator(
+                modifier = Modifier.fillMaxWidth(),
+                color = MaterialTheme.colorScheme.primary
+            )
+        }
+
         if (rootPath == null) {
             Box(
                 modifier = Modifier.fillMaxSize(),
@@ -83,9 +99,6 @@ fun FolderTreePanel(
             }
 
             LazyColumn(modifier = Modifier.fillMaxSize()) {
-                item(key = "header") {
-                    HeaderRow(onOpenFolderClick = onOpenFolderClick)
-                }
                 items(treeItems, key = { it.path }) { item ->
                     FolderRow(
                         item = item,
@@ -95,26 +108,15 @@ fun FolderTreePanel(
                 }
             }
         }
-
-        if (rootPath == null) {
-            IconButton(
-                onClick = onOpenFolderClick,
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(8.dp)
-            ) {
-                Icon(
-                    Icons.Default.CreateNewFolder,
-                    contentDescription = "Open Folder",
-                    tint = MaterialTheme.colorScheme.primary
-                )
-            }
-        }
     }
 }
 
 @Composable
-private fun HeaderRow(onOpenFolderClick: () -> Unit) {
+private fun HeaderRow(
+    onOpenFolderClick: () -> Unit,
+    onRescanClick: () -> Unit,
+    showRescan: Boolean
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -129,6 +131,16 @@ private fun HeaderRow(onOpenFolderClick: () -> Unit) {
             color = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.weight(1f)
         )
+        if (showRescan) {
+            IconButton(onClick = onRescanClick, modifier = Modifier.size(32.dp)) {
+                Icon(
+                    Icons.Default.Refresh,
+                    contentDescription = "Rescan",
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+        }
         IconButton(onClick = onOpenFolderClick, modifier = Modifier.size(32.dp)) {
             Icon(
                 Icons.Default.CreateNewFolder,
