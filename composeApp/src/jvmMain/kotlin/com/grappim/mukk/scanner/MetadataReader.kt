@@ -25,6 +25,24 @@ object MetadataReader {
         Logger.getLogger("org.jaudiotagger").level = Level.OFF
     }
 
+    fun readAlbumArt(filePath: String): ByteArray? {
+        return try {
+            val audioFile = AudioFileIO.read(File(filePath))
+            audioFile.tag?.firstArtwork?.binaryData
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    fun readLyrics(filePath: String): String? {
+        return try {
+            val audioFile = AudioFileIO.read(File(filePath))
+            audioFile.tag?.getFirst(FieldKey.LYRICS)?.takeIf { it.isNotBlank() }
+        } catch (e: Exception) {
+            null
+        }
+    }
+
     fun read(file: File): AudioMetadata? {
         return try {
             val audioFile = AudioFileIO.read(file)

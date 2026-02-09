@@ -22,16 +22,21 @@ fun MainLayout(
     selectedFolderEntries: List<FileEntry>,
     playbackState: PlaybackState,
     currentTrack: MediaTrackData?,
+    selectedTrackPath: String?,
+    playingFolderPath: String?,
     onToggleExpand: (String) -> Unit,
     onSelectFolder: (String) -> Unit,
     onOpenFolderClick: () -> Unit,
     onTrackClick: (FileEntry) -> Unit,
+    onTrackDoubleClick: (FileEntry) -> Unit,
     getSubfolders: (String) -> List<Pair<File, Boolean>>,
     onPlayPause: () -> Unit,
     onStop: () -> Unit,
     onPrevious: () -> Unit,
     onNext: () -> Unit,
     onSeek: (Long) -> Unit,
+    albumArt: ByteArray?,
+    lyrics: String?,
     onVolumeChange: (Double) -> Unit
 ) {
     Column(
@@ -42,6 +47,7 @@ fun MainLayout(
         Row(modifier = Modifier.weight(1f).fillMaxWidth()) {
             FolderTreePanel(
                 folderTreeState = folderTreeState,
+                playingFolderPath = playingFolderPath,
                 onToggleExpand = onToggleExpand,
                 onSelectFolder = onSelectFolder,
                 onOpenFolderClick = onOpenFolderClick,
@@ -53,8 +59,18 @@ fun MainLayout(
             TrackListPanel(
                 entries = selectedFolderEntries,
                 currentTrackPath = playbackState.currentTrackPath,
+                selectedTrackPath = selectedTrackPath,
                 onTrackClick = onTrackClick,
+                onTrackDoubleClick = onTrackDoubleClick,
                 modifier = Modifier.weight(1f)
+            )
+
+            VerticalDivider(color = MaterialTheme.colorScheme.surfaceVariant)
+
+            NowPlayingPanel(
+                currentTrack = currentTrack,
+                albumArt = albumArt,
+                lyrics = lyrics
             )
         }
 

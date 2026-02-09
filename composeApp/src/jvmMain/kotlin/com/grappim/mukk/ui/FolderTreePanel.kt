@@ -1,7 +1,8 @@
 package com.grappim.mukk.ui
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -17,6 +18,7 @@ import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.CreateNewFolder
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -37,12 +39,14 @@ private data class TreeItem(
     val depth: Int,
     val isExpanded: Boolean,
     val isSelected: Boolean,
+    val isPlaying: Boolean,
     val hasChildren: Boolean
 )
 
 @Composable
 fun FolderTreePanel(
     folderTreeState: FolderTreeState,
+    playingFolderPath: String?,
     onToggleExpand: (String) -> Unit,
     onSelectFolder: (String) -> Unit,
     onOpenFolderClick: () -> Unit,
@@ -69,8 +73,13 @@ fun FolderTreePanel(
                 )
             }
         } else {
-            val treeItems = remember(rootPath, folderTreeState.expandedPaths, folderTreeState.selectedPath) {
-                buildTreeItems(rootPath, folderTreeState, getSubfolders)
+            val treeItems = remember(
+                rootPath,
+                folderTreeState.expandedPaths,
+                folderTreeState.selectedPath,
+                playingFolderPath
+            ) {
+                buildTreeItems(rootPath, folderTreeState, playingFolderPath, getSubfolders)
             }
 
             LazyColumn(modifier = Modifier.fillMaxSize()) {
@@ -131,27 +140,31 @@ private fun HeaderRow(onOpenFolderClick: () -> Unit) {
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun FolderRow(
     item: TreeItem,
     onToggleExpand: (String) -> Unit,
     onSelect: (String) -> Unit
 ) {
-    val bgColor = if (item.isSelected) {
-        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
-    } else {
-        MaterialTheme.colorScheme.surface
+    val bgColor = when {
+        item.isSelected -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
+        item.isPlaying -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.15f)
+        else -> MaterialTheme.colorScheme.surface
     }
-    val textColor = if (item.isSelected) {
-        MaterialTheme.colorScheme.primary
-    } else {
-        MaterialTheme.colorScheme.onSurface
+    val textColor = when {
+        item.isSelected -> MaterialTheme.colorScheme.primary
+        item.isPlaying -> MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
+        else -> MaterialTheme.colorScheme.onSurface
     }
 
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onSelect(item.path) }
+            .combinedClickable(
+                onClick = { onSelect(item.path) },
+                onDoubleClick = { onToggleExpand(item.path) }
+            )
             .background(bgColor)
             .padding(start = (12 + item.depth * 16).dp, end = 8.dp, top = 4.dp, bottom = 4.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -187,14 +200,26 @@ private fun FolderRow(
             color = textColor,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.padding(start = 4.dp)
+            modifier = Modifier
+                .weight(1f)
+                .padding(start = 4.dp)
         )
+
+        if (item.isPlaying && !item.isSelected) {
+            Icon(
+                Icons.Default.PlayArrow,
+                contentDescription = "Playing",
+                tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f),
+                modifier = Modifier.size(14.dp)
+            )
+        }
     }
 }
 
 private fun buildTreeItems(
     rootPath: String,
     state: FolderTreeState,
+    playingFolderPath: String?,
     getSubfolders: (String) -> List<Pair<File, Boolean>>
 ): List<TreeItem> {
     val items = mutableListOf<TreeItem>()
@@ -208,12 +233,13 @@ private fun buildTreeItems(
             depth = 0,
             isExpanded = rootPath in state.expandedPaths,
             isSelected = rootPath == state.selectedPath,
+            isPlaying = rootPath == playingFolderPath,
             hasChildren = rootHasChildren
         )
     )
 
     if (rootPath in state.expandedPaths) {
-        addChildren(rootPath, 1, state, getSubfolders, items)
+        addChildren(rootPath, 1, state, playingFolderPath, getSubfolders, items)
     }
 
     return items
@@ -223,6 +249,7 @@ private fun addChildren(
     parentPath: String,
     depth: Int,
     state: FolderTreeState,
+    playingFolderPath: String?,
     getSubfolders: (String) -> List<Pair<File, Boolean>>,
     items: MutableList<TreeItem>
 ) {
@@ -238,12 +265,13 @@ private fun addChildren(
                 depth = depth,
                 isExpanded = isExpanded,
                 isSelected = path == state.selectedPath,
+                isPlaying = path == playingFolderPath,
                 hasChildren = hasChildren
             )
         )
 
         if (isExpanded) {
-            addChildren(path, depth + 1, state, getSubfolders, items)
+            addChildren(path, depth + 1, state, playingFolderPath, getSubfolders, items)
         }
     }
 }

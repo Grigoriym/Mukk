@@ -1,7 +1,8 @@
 package com.grappim.mukk.ui
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -24,7 +25,9 @@ import com.grappim.mukk.ui.components.formatTime
 fun TrackListPanel(
     entries: List<FileEntry>,
     currentTrackPath: String?,
+    selectedTrackPath: String?,
     onTrackClick: (FileEntry) -> Unit,
+    onTrackDoubleClick: (FileEntry) -> Unit,
     modifier: Modifier = Modifier
 ) {
     if (entries.isEmpty()) {
@@ -45,10 +48,13 @@ fun TrackListPanel(
             }
             items(entries, key = { it.file.absolutePath }) { entry ->
                 val isPlaying = entry.file.absolutePath == currentTrackPath
+                val isSelected = entry.file.absolutePath == selectedTrackPath
                 TrackRow(
                     entry = entry,
                     isPlaying = isPlaying,
-                    onClick = { onTrackClick(entry) }
+                    isSelected = isSelected,
+                    onClick = { onTrackClick(entry) },
+                    onDoubleClick = { onTrackDoubleClick(entry) }
                 )
             }
         }
@@ -103,28 +109,34 @@ private fun TrackListHeader() {
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun TrackRow(
     entry: FileEntry,
     isPlaying: Boolean,
-    onClick: () -> Unit
+    isSelected: Boolean,
+    onClick: () -> Unit,
+    onDoubleClick: () -> Unit
 ) {
     val track = entry.trackData
-    val bgColor = if (isPlaying) {
-        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
-    } else {
-        MaterialTheme.colorScheme.background
+    val bgColor = when {
+        isPlaying -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+        isSelected -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+        else -> MaterialTheme.colorScheme.background
     }
-    val textColor = if (isPlaying) {
-        MaterialTheme.colorScheme.primary
-    } else {
-        MaterialTheme.colorScheme.onBackground
+    val textColor = when {
+        isPlaying -> MaterialTheme.colorScheme.primary
+        isSelected -> MaterialTheme.colorScheme.onSurface
+        else -> MaterialTheme.colorScheme.onBackground
     }
 
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            .combinedClickable(
+                onClick = onClick,
+                onDoubleClick = onDoubleClick
+            )
             .background(bgColor)
             .padding(horizontal = 16.dp, vertical = 10.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp)
