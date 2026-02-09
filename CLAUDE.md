@@ -138,3 +138,9 @@ Data model for column definitions (visible, width, order). Right-click on column
 
 ### 5. Auto-scan new folders added at runtime
 Currently the folder tree reads the filesystem directly, so new folders appear when expanding/collapsing the tree. However, `FileScanner.scan()` only runs when the user opens a root folder via "Open Folder", so newly added folders have no metadata in the DB (tracks show filenames with no title/artist/album/duration). Need to either: (a) rescan when a folder is selected and has unscanned tracks, or (b) watch the filesystem for changes (`WatchService`), or (c) rely on the rescan button (item #1) as the manual solution.
+
+### 6. Scan progress indicator
+When opening a new folder (triggering `FileScanner.scan()`), show a progress indicator so the user knows scanning is in progress. Could be a linear progress bar in the folder tree header, a modal/overlay, or inline text showing scanned file count.
+
+### 7. Bug: "Mukk" title missing on first start
+On first launch (no folder opened yet), the "Mukk" title in the top-left corner of FolderTreePanel is not visible. It appears after opening a folder. Likely a layout/visibility issue in FolderTreePanel when there is no root path set.

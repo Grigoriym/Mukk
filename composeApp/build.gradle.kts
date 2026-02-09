@@ -49,6 +49,8 @@ compose.desktop {
             packageVersion = "1.0.0"
             description = "Music player for Linux"
             vendor = "Grappim"
+
+            modules("java.sql", "java.naming", "jdk.unsupported")
         }
     }
 }
