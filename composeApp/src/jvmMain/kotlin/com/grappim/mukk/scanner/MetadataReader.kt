@@ -1,0 +1,51 @@
+package com.grappim.mukk.scanner
+
+import org.jaudiotagger.audio.AudioFileIO
+import org.jaudiotagger.tag.FieldKey
+import java.io.File
+import java.util.logging.Level
+import java.util.logging.Logger
+
+data class AudioMetadata(
+    val title: String,
+    val artist: String,
+    val album: String,
+    val albumArtist: String,
+    val genre: String,
+    val trackNumber: Int,
+    val discNumber: Int,
+    val year: Int,
+    val durationMs: Long
+)
+
+object MetadataReader {
+
+    init {
+        // Suppress jaudiotagger's verbose logging
+        Logger.getLogger("org.jaudiotagger").level = Level.OFF
+    }
+
+    fun read(file: File): AudioMetadata? {
+        return try {
+            val audioFile = AudioFileIO.read(file)
+            val tag = audioFile.tag
+            val header = audioFile.audioHeader
+
+            AudioMetadata(
+                title = tag?.getFirst(FieldKey.TITLE)?.takeIf { it.isNotBlank() }
+                    ?: file.nameWithoutExtension,
+                artist = tag?.getFirst(FieldKey.ARTIST).orEmpty(),
+                album = tag?.getFirst(FieldKey.ALBUM).orEmpty(),
+                albumArtist = tag?.getFirst(FieldKey.ALBUM_ARTIST).orEmpty(),
+                genre = tag?.getFirst(FieldKey.GENRE).orEmpty(),
+                trackNumber = tag?.getFirst(FieldKey.TRACK)?.toIntOrNull() ?: 0,
+                discNumber = tag?.getFirst(FieldKey.DISC_NO)?.toIntOrNull() ?: 0,
+                year = tag?.getFirst(FieldKey.YEAR)?.take(4)?.toIntOrNull() ?: 0,
+                durationMs = header.trackLength.toLong() * 1000L
+            )
+        } catch (e: Exception) {
+            System.err.println("Failed to read metadata for ${file.name}: ${e.message}")
+            null
+        }
+    }
+}
