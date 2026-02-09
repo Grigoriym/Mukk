@@ -10,25 +10,23 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import com.grappim.mukk.data.FileBrowserState
 import com.grappim.mukk.data.FileEntry
+import com.grappim.mukk.data.FolderTreeState
 import com.grappim.mukk.data.MediaTrackData
 import com.grappim.mukk.player.PlaybackState
+import java.io.File
 
 @Composable
 fun MainLayout(
-    browserState: FileBrowserState,
-    nowPlayingEntries: List<FileEntry>,
-    nowPlayingFolderName: String?,
+    folderTreeState: FolderTreeState,
+    selectedFolderEntries: List<FileEntry>,
     playbackState: PlaybackState,
     currentTrack: MediaTrackData?,
-    onLibraryClick: () -> Unit,
+    onToggleExpand: (String) -> Unit,
+    onSelectFolder: (String) -> Unit,
     onOpenFolderClick: () -> Unit,
-    onNavigateToDirectory: (String) -> Unit,
-    onNavigateUp: () -> Unit,
-    onBreadcrumbClick: (Int) -> Unit,
-    onFileClick: (FileEntry) -> Unit,
-    onNowPlayingFileClick: (FileEntry) -> Unit,
+    onTrackClick: (FileEntry) -> Unit,
+    getSubfolders: (String) -> List<Pair<File, Boolean>>,
     onPlayPause: () -> Unit,
     onStop: () -> Unit,
     onPrevious: () -> Unit,
@@ -42,29 +40,21 @@ fun MainLayout(
             .background(MaterialTheme.colorScheme.background)
     ) {
         Row(modifier = Modifier.weight(1f).fillMaxWidth()) {
-            Sidebar(
-                onLibraryClick = onLibraryClick,
-                onOpenFolderClick = onOpenFolderClick
-            )
-
-            FileBrowserPanel(
-                state = browserState,
-                currentTrackPath = playbackState.currentTrackPath,
-                onNavigateToDirectory = onNavigateToDirectory,
-                onNavigateUp = onNavigateUp,
-                onFileClick = onFileClick,
-                onBreadcrumbClick = onBreadcrumbClick,
-                modifier = Modifier.weight(1f)
+            FolderTreePanel(
+                folderTreeState = folderTreeState,
+                onToggleExpand = onToggleExpand,
+                onSelectFolder = onSelectFolder,
+                onOpenFolderClick = onOpenFolderClick,
+                getSubfolders = getSubfolders
             )
 
             VerticalDivider(color = MaterialTheme.colorScheme.surfaceVariant)
 
-            NowPlayingFolderPanel(
-                entries = nowPlayingEntries,
-                folderName = nowPlayingFolderName,
+            TrackListPanel(
+                entries = selectedFolderEntries,
                 currentTrackPath = playbackState.currentTrackPath,
-                onFileClick = onNowPlayingFileClick,
-                modifier = Modifier.weight(0.4f)
+                onTrackClick = onTrackClick,
+                modifier = Modifier.weight(1f)
             )
         }
 

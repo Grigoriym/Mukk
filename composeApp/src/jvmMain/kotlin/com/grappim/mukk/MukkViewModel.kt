@@ -3,8 +3,8 @@ package com.grappim.mukk
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.grappim.mukk.data.DatabaseInit
-import com.grappim.mukk.data.FileBrowserState
 import com.grappim.mukk.data.FileEntry
+import com.grappim.mukk.data.FolderTreeState
 import com.grappim.mukk.data.MediaTrackData
 import com.grappim.mukk.data.MediaTrackEntity
 import com.grappim.mukk.data.MediaTracks
@@ -31,14 +31,11 @@ class MukkViewModel(
 
     val playbackState: StateFlow<PlaybackState> = audioPlayer.state
 
-    private val _libraryBrowserState = MutableStateFlow(FileBrowserState())
-    val libraryBrowserState: StateFlow<FileBrowserState> = _libraryBrowserState.asStateFlow()
+    private val _folderTreeState = MutableStateFlow(FolderTreeState())
+    val folderTreeState: StateFlow<FolderTreeState> = _folderTreeState.asStateFlow()
 
-    private val _nowPlayingFolderEntries = MutableStateFlow<List<FileEntry>>(emptyList())
-    val nowPlayingFolderEntries: StateFlow<List<FileEntry>> = _nowPlayingFolderEntries.asStateFlow()
-
-    private val _nowPlayingFolderName = MutableStateFlow<String?>(null)
-    val nowPlayingFolderName: StateFlow<String?> = _nowPlayingFolderName.asStateFlow()
+    private val _selectedFolderEntries = MutableStateFlow<List<FileEntry>>(emptyList())
+    val selectedFolderEntries: StateFlow<List<FileEntry>> = _selectedFolderEntries.asStateFlow()
 
     private var currentTrackIndex: Int = -1
 
@@ -51,54 +48,63 @@ class MukkViewModel(
         viewModelScope.launch(Dispatchers.IO) {
             FileScanner.scan(File(path))
             loadTracks()
-            _libraryBrowserState.value = _libraryBrowserState.value.copy(rootPath = path)
-            navigateToDirectory(path)
-        }
-    }
-
-    fun navigateToDirectory(path: String) {
-        viewModelScope.launch(Dispatchers.IO) {
-            val entries = listDirectoryEntries(path)
-            val root = _libraryBrowserState.value.rootPath ?: path
-            val segments = buildPathSegments(root, path)
-            _libraryBrowserState.value = _libraryBrowserState.value.copy(
-                currentPath = path,
-                entries = entries,
-                pathSegments = segments
+            _folderTreeState.value = FolderTreeState(
+                rootPath = path,
+                expandedPaths = setOf(path),
+                selectedPath = path
             )
+            loadSelectedFolderEntries(path)
         }
     }
 
-    fun navigateUp() {
-        val current = _libraryBrowserState.value.currentPath ?: return
-        val root = _libraryBrowserState.value.rootPath ?: return
-        if (current == root) return
-        val parent = File(current).parent ?: return
-        if (!parent.startsWith(root)) return
-        navigateToDirectory(parent)
+    fun toggleFolderExpanded(path: String) {
+        val current = _folderTreeState.value
+        val newExpanded = if (path in current.expandedPaths) {
+            current.expandedPaths - path
+        } else {
+            current.expandedPaths + path
+        }
+        _folderTreeState.value = current.copy(expandedPaths = newExpanded)
     }
 
-    fun navigateToRoot() {
-        val root = _libraryBrowserState.value.rootPath ?: return
-        navigateToDirectory(root)
+    fun selectFolder(path: String) {
+        _folderTreeState.value = _folderTreeState.value.copy(selectedPath = path)
+        viewModelScope.launch(Dispatchers.IO) {
+            loadSelectedFolderEntries(path)
+        }
+    }
+
+    fun getSubfolders(path: String): List<Pair<File, Boolean>> {
+        val dir = File(path)
+        if (!dir.isDirectory) return emptyList()
+        val children = dir.listFiles() ?: return emptyList()
+        return children
+            .filter { it.isDirectory && containsAudioFiles(it) }
+            .sortedBy { it.name.lowercase() }
+            .map { child ->
+                val hasChildren = child.listFiles()
+                    ?.any { it.isDirectory && containsAudioFiles(it) }
+                    ?: false
+                child to hasChildren
+            }
     }
 
     fun playFile(entry: FileEntry) {
         if (entry.isDirectory) return
+        val entries = _selectedFolderEntries.value
+        currentTrackIndex = entries.indexOfFirst { it.file.absolutePath == entry.file.absolutePath }
         val trackData = entry.trackData
         if (trackData != null) {
-            playTrack(trackData)
+            audioPlayer.play(trackData.filePath)
         } else {
             audioPlayer.play(entry.file.absolutePath)
-            updateNowPlayingFolder(entry.file.absolutePath)
         }
     }
 
     fun playTrack(track: MediaTrackData) {
-        currentTrackIndex = _nowPlayingFolderEntries.value
+        currentTrackIndex = _selectedFolderEntries.value
             .indexOfFirst { it.file.absolutePath == track.filePath }
         audioPlayer.play(track.filePath)
-        updateNowPlayingFolder(track.filePath)
     }
 
     fun pause() {
@@ -135,38 +141,34 @@ class MukkViewModel(
     }
 
     fun nextTrack() {
-        val folderEntries = _nowPlayingFolderEntries.value.filter { !it.isDirectory }
-        if (folderEntries.isEmpty()) return
+        val entries = _selectedFolderEntries.value
+        if (entries.isEmpty()) return
         val currentPath = playbackState.value.currentTrackPath
-        val currentIdx = folderEntries.indexOfFirst { it.file.absolutePath == currentPath }
-        val nextIdx = if (currentIdx < 0) 0 else (currentIdx + 1) % folderEntries.size
-        val next = folderEntries[nextIdx]
+        val currentIdx = entries.indexOfFirst { it.file.absolutePath == currentPath }
+        val nextIdx = if (currentIdx < 0) 0 else (currentIdx + 1) % entries.size
+        val next = entries[nextIdx]
         currentTrackIndex = nextIdx
         audioPlayer.play(next.file.absolutePath)
-        // No need to updateNowPlayingFolder — we're already in the same folder
     }
 
     fun previousTrack() {
-        val folderEntries = _nowPlayingFolderEntries.value.filter { !it.isDirectory }
-        if (folderEntries.isEmpty()) return
+        val entries = _selectedFolderEntries.value
+        if (entries.isEmpty()) return
         val currentPath = playbackState.value.currentTrackPath
-        val currentIdx = folderEntries.indexOfFirst { it.file.absolutePath == currentPath }
-        val prevIdx = if (currentIdx <= 0) folderEntries.lastIndex else currentIdx - 1
-        val prev = folderEntries[prevIdx]
+        val currentIdx = entries.indexOfFirst { it.file.absolutePath == currentPath }
+        val prevIdx = if (currentIdx <= 0) entries.lastIndex else currentIdx - 1
+        val prev = entries[prevIdx]
         currentTrackIndex = prevIdx
         audioPlayer.play(prev.file.absolutePath)
     }
 
-    private fun updateNowPlayingFolder(trackPath: String) {
-        viewModelScope.launch(Dispatchers.IO) {
-            val parentDir = File(trackPath).parentFile ?: return@launch
-            _nowPlayingFolderName.value = parentDir.name
-            val entries = listDirectoryEntries(parentDir.absolutePath)
-                .filter { !it.isDirectory }
-            _nowPlayingFolderEntries.value = entries
-            // Update currentTrackIndex within now-playing entries
-            currentTrackIndex = entries.indexOfFirst { it.file.absolutePath == trackPath }
-        }
+    private fun loadSelectedFolderEntries(path: String) {
+        val entries = listDirectoryEntries(path).filter { !it.isDirectory }
+        _selectedFolderEntries.value = entries
+    }
+
+    private fun containsAudioFiles(dir: File): Boolean {
+        return dir.walkTopDown().any { it.isFile && it.extension.lowercase() in AUDIO_EXTENSIONS }
     }
 
     private fun listDirectoryEntries(path: String): List<FileEntry> {
@@ -204,12 +206,6 @@ class MukkViewModel(
                 .firstOrNull()
                 ?.toData()
         }
-    }
-
-    private fun buildPathSegments(root: String, current: String): List<String> {
-        if (current == root) return listOf(File(root).name)
-        val relative = File(current).toRelativeString(File(root))
-        return listOf(File(root).name) + relative.split(File.separator)
     }
 
     private fun loadTracks() {

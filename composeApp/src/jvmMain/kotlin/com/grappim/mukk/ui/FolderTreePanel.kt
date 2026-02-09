@@ -1,0 +1,249 @@
+package com.grappim.mukk.ui
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.CreateNewFolder
+import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import com.grappim.mukk.data.FolderTreeState
+import java.io.File
+
+private data class TreeItem(
+    val path: String,
+    val name: String,
+    val depth: Int,
+    val isExpanded: Boolean,
+    val isSelected: Boolean,
+    val hasChildren: Boolean
+)
+
+@Composable
+fun FolderTreePanel(
+    folderTreeState: FolderTreeState,
+    onToggleExpand: (String) -> Unit,
+    onSelectFolder: (String) -> Unit,
+    onOpenFolderClick: () -> Unit,
+    getSubfolders: (String) -> List<Pair<File, Boolean>>,
+    modifier: Modifier = Modifier
+) {
+    val rootPath = folderTreeState.rootPath
+
+    Box(
+        modifier = modifier
+            .fillMaxHeight()
+            .width(250.dp)
+            .background(MaterialTheme.colorScheme.surface)
+    ) {
+        if (rootPath == null) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "Open a folder to browse",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        } else {
+            val treeItems = remember(rootPath, folderTreeState.expandedPaths, folderTreeState.selectedPath) {
+                buildTreeItems(rootPath, folderTreeState, getSubfolders)
+            }
+
+            LazyColumn(modifier = Modifier.fillMaxSize()) {
+                item(key = "header") {
+                    HeaderRow(onOpenFolderClick = onOpenFolderClick)
+                }
+                items(treeItems, key = { it.path }) { item ->
+                    FolderRow(
+                        item = item,
+                        onToggleExpand = onToggleExpand,
+                        onSelect = onSelectFolder
+                    )
+                }
+            }
+        }
+
+        if (rootPath == null) {
+            IconButton(
+                onClick = onOpenFolderClick,
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(8.dp)
+            ) {
+                Icon(
+                    Icons.Default.CreateNewFolder,
+                    contentDescription = "Open Folder",
+                    tint = MaterialTheme.colorScheme.primary
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun HeaderRow(onOpenFolderClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+            .padding(start = 12.dp, end = 4.dp, top = 8.dp, bottom = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = "Mukk",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.weight(1f)
+        )
+        IconButton(onClick = onOpenFolderClick, modifier = Modifier.size(32.dp)) {
+            Icon(
+                Icons.Default.CreateNewFolder,
+                contentDescription = "Open Folder",
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(20.dp)
+            )
+        }
+    }
+}
+
+@Composable
+private fun FolderRow(
+    item: TreeItem,
+    onToggleExpand: (String) -> Unit,
+    onSelect: (String) -> Unit
+) {
+    val bgColor = if (item.isSelected) {
+        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
+    } else {
+        MaterialTheme.colorScheme.surface
+    }
+    val textColor = if (item.isSelected) {
+        MaterialTheme.colorScheme.primary
+    } else {
+        MaterialTheme.colorScheme.onSurface
+    }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onSelect(item.path) }
+            .background(bgColor)
+            .padding(start = (12 + item.depth * 16).dp, end = 8.dp, top = 4.dp, bottom = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        if (item.hasChildren) {
+            IconButton(
+                onClick = { onToggleExpand(item.path) },
+                modifier = Modifier.size(24.dp)
+            ) {
+                Icon(
+                    imageVector = if (item.isExpanded) Icons.Default.ExpandMore else Icons.Default.ChevronRight,
+                    contentDescription = if (item.isExpanded) "Collapse" else "Expand",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+        } else {
+            Box(modifier = Modifier.size(24.dp))
+        }
+
+        Icon(
+            Icons.Default.Folder,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f),
+            modifier = Modifier
+                .size(18.dp)
+                .padding(end = 4.dp)
+        )
+
+        Text(
+            text = item.name,
+            style = MaterialTheme.typography.bodySmall,
+            color = textColor,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(start = 4.dp)
+        )
+    }
+}
+
+private fun buildTreeItems(
+    rootPath: String,
+    state: FolderTreeState,
+    getSubfolders: (String) -> List<Pair<File, Boolean>>
+): List<TreeItem> {
+    val items = mutableListOf<TreeItem>()
+    val rootFile = File(rootPath)
+    val rootHasChildren = getSubfolders(rootPath).isNotEmpty()
+
+    items.add(
+        TreeItem(
+            path = rootPath,
+            name = rootFile.name,
+            depth = 0,
+            isExpanded = rootPath in state.expandedPaths,
+            isSelected = rootPath == state.selectedPath,
+            hasChildren = rootHasChildren
+        )
+    )
+
+    if (rootPath in state.expandedPaths) {
+        addChildren(rootPath, 1, state, getSubfolders, items)
+    }
+
+    return items
+}
+
+private fun addChildren(
+    parentPath: String,
+    depth: Int,
+    state: FolderTreeState,
+    getSubfolders: (String) -> List<Pair<File, Boolean>>,
+    items: MutableList<TreeItem>
+) {
+    val subfolders = getSubfolders(parentPath)
+    for ((folder, hasChildren) in subfolders) {
+        val path = folder.absolutePath
+        val isExpanded = path in state.expandedPaths
+
+        items.add(
+            TreeItem(
+                path = path,
+                name = folder.name,
+                depth = depth,
+                isExpanded = isExpanded,
+                isSelected = path == state.selectedPath,
+                hasChildren = hasChildren
+            )
+        )
+
+        if (isExpanded) {
+            addChildren(path, depth + 1, state, getSubfolders, items)
+        }
+    }
+}

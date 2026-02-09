@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.SkipNext
@@ -125,7 +126,7 @@ fun TransportBar(
             VolumeControl(
                 volume = playbackState.volume,
                 onVolumeChange = onVolumeChange,
-                volumeIcon = Icons.Default.VolumeUp
+                volumeIcon = Icons.AutoMirrored.Filled.VolumeUp
             )
         }
     }

@@ -9,9 +9,8 @@ data class FileEntry(
     val trackData: MediaTrackData?
 )
 
-data class FileBrowserState(
+data class FolderTreeState(
     val rootPath: String? = null,
-    val currentPath: String? = null,
-    val entries: List<FileEntry> = emptyList(),
-    val pathSegments: List<String> = emptyList()
+    val expandedPaths: Set<String> = emptySet(),
+    val selectedPath: String? = null
 )

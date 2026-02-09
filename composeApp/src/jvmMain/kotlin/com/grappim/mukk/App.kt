@@ -8,7 +8,6 @@ import com.grappim.mukk.ui.MainLayout
 import com.grappim.mukk.ui.MukkTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import java.io.File
 import javax.swing.JFileChooser
 
 private fun pickDirectoryNative(): String? {
@@ -46,21 +45,20 @@ private fun pickDirectoryNative(): String? {
 fun App(viewModel: MukkViewModel) {
     val tracks by viewModel.tracks.collectAsState()
     val playbackState by viewModel.playbackState.collectAsState()
-    val browserState by viewModel.libraryBrowserState.collectAsState()
-    val nowPlayingEntries by viewModel.nowPlayingFolderEntries.collectAsState()
-    val nowPlayingFolderName by viewModel.nowPlayingFolderName.collectAsState()
+    val folderTreeState by viewModel.folderTreeState.collectAsState()
+    val selectedFolderEntries by viewModel.selectedFolderEntries.collectAsState()
     val scope = rememberCoroutineScope()
 
     val currentTrack = tracks.firstOrNull { it.filePath == playbackState.currentTrackPath }
 
     MukkTheme {
         MainLayout(
-            browserState = browserState,
-            nowPlayingEntries = nowPlayingEntries,
-            nowPlayingFolderName = nowPlayingFolderName,
+            folderTreeState = folderTreeState,
+            selectedFolderEntries = selectedFolderEntries,
             playbackState = playbackState,
             currentTrack = currentTrack,
-            onLibraryClick = { viewModel.navigateToRoot() },
+            onToggleExpand = { path -> viewModel.toggleFolderExpanded(path) },
+            onSelectFolder = { path -> viewModel.selectFolder(path) },
             onOpenFolderClick = {
                 scope.launch(Dispatchers.IO) {
                     val path = pickDirectoryNative()
@@ -69,27 +67,8 @@ fun App(viewModel: MukkViewModel) {
                     }
                 }
             },
-            onNavigateToDirectory = { path -> viewModel.navigateToDirectory(path) },
-            onNavigateUp = { viewModel.navigateUp() },
-            onBreadcrumbClick = { segmentIndex ->
-                // Reconstruct path from root + segments up to clicked index
-                val root = browserState.rootPath ?: return@MainLayout
-                if (segmentIndex == 0) {
-                    viewModel.navigateToDirectory(root)
-                } else {
-                    val segments = browserState.pathSegments.drop(1).take(segmentIndex)
-                    val path = segments.fold(root) { acc, seg -> acc + File.separator + seg }
-                    viewModel.navigateToDirectory(path)
-                }
-            },
-            onFileClick = { entry ->
-                if (entry.isDirectory) {
-                    viewModel.navigateToDirectory(entry.file.absolutePath)
-                } else {
-                    viewModel.playFile(entry)
-                }
-            },
-            onNowPlayingFileClick = { entry -> viewModel.playFile(entry) },
+            onTrackClick = { entry -> viewModel.playFile(entry) },
+            getSubfolders = { path -> viewModel.getSubfolders(path) },
             onPlayPause = { viewModel.togglePlayPause() },
             onStop = { viewModel.stop() },
             onPrevious = { viewModel.previousTrack() },

@@ -17,23 +17,23 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.grappim.mukk.data.MediaTrackData
+import com.grappim.mukk.data.FileEntry
 import com.grappim.mukk.ui.components.formatTime
 
 @Composable
 fun TrackListPanel(
-    tracks: List<MediaTrackData>,
+    entries: List<FileEntry>,
     currentTrackPath: String?,
-    onTrackClick: (MediaTrackData) -> Unit,
+    onTrackClick: (FileEntry) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    if (tracks.isEmpty()) {
+    if (entries.isEmpty()) {
         Box(
             modifier = modifier.fillMaxSize(),
             contentAlignment = Alignment.Center
         ) {
             Text(
-                text = "No tracks. Use \"Open Folder\" to scan a directory.",
+                text = "Select a folder to see its tracks",
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -43,12 +43,12 @@ fun TrackListPanel(
             item {
                 TrackListHeader()
             }
-            items(tracks, key = { it.id }) { track ->
-                val isPlaying = track.filePath == currentTrackPath
+            items(entries, key = { it.file.absolutePath }) { entry ->
+                val isPlaying = entry.file.absolutePath == currentTrackPath
                 TrackRow(
-                    track = track,
+                    entry = entry,
                     isPlaying = isPlaying,
-                    onClick = { onTrackClick(track) }
+                    onClick = { onTrackClick(entry) }
                 )
             }
         }
@@ -68,22 +68,28 @@ private fun TrackListHeader() {
             text = "#",
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.weight(0.5f)
+            modifier = Modifier.weight(0.4f)
+        )
+        Text(
+            text = "File Name",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.weight(2f)
         )
         Text(
             text = "Title",
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.weight(3f)
-        )
-        Text(
-            text = "Artist",
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.weight(2f)
         )
         Text(
             text = "Album",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.weight(2f)
+        )
+        Text(
+            text = "Artist",
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.weight(2f)
@@ -99,10 +105,11 @@ private fun TrackListHeader() {
 
 @Composable
 private fun TrackRow(
-    track: MediaTrackData,
+    entry: FileEntry,
     isPlaying: Boolean,
     onClick: () -> Unit
 ) {
+    val track = entry.trackData
     val bgColor = if (isPlaying) {
         MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
     } else {
@@ -123,21 +130,29 @@ private fun TrackRow(
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Text(
-            text = if (track.trackNumber > 0) track.trackNumber.toString() else "-",
+            text = if (track != null && track.trackNumber > 0) track.trackNumber.toString() else "-",
             style = MaterialTheme.typography.bodySmall,
             color = textColor.copy(alpha = 0.7f),
-            modifier = Modifier.weight(0.5f)
+            modifier = Modifier.weight(0.4f)
         )
         Text(
-            text = track.title,
+            text = entry.file.name,
+            style = MaterialTheme.typography.bodySmall,
+            color = textColor.copy(alpha = 0.8f),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(2f)
+        )
+        Text(
+            text = track?.title ?: "-",
             style = MaterialTheme.typography.bodyMedium,
             color = textColor,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(3f)
+            modifier = Modifier.weight(2f)
         )
         Text(
-            text = track.artist.ifEmpty { "-" },
+            text = track?.album?.ifEmpty { "-" } ?: "-",
             style = MaterialTheme.typography.bodySmall,
             color = textColor.copy(alpha = 0.8f),
             maxLines = 1,
@@ -145,7 +160,7 @@ private fun TrackRow(
             modifier = Modifier.weight(2f)
         )
         Text(
-            text = track.album.ifEmpty { "-" },
+            text = track?.artist?.ifEmpty { "-" } ?: "-",
             style = MaterialTheme.typography.bodySmall,
             color = textColor.copy(alpha = 0.8f),
             maxLines = 1,
@@ -153,7 +168,7 @@ private fun TrackRow(
             modifier = Modifier.weight(2f)
         )
         Text(
-            text = if (track.duration > 0) formatTime(track.duration) else "-",
+            text = if (track != null && track.duration > 0) formatTime(track.duration) else "-",
             style = MaterialTheme.typography.bodySmall,
             color = textColor.copy(alpha = 0.7f),
             modifier = Modifier.weight(1f)
