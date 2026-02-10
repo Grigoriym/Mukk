@@ -2,13 +2,17 @@ package com.grappim.mukk
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.grappim.mukk.data.ColumnConfig
+import com.grappim.mukk.data.DEFAULT_COLUMN_CONFIG
 import com.grappim.mukk.data.DatabaseInit
 import com.grappim.mukk.data.FileEntry
 import com.grappim.mukk.data.FolderTreeState
 import com.grappim.mukk.data.MediaTrackData
 import com.grappim.mukk.data.MediaTrackEntity
+import com.grappim.mukk.data.MukkUiState
 import com.grappim.mukk.data.MediaTracks
 import com.grappim.mukk.data.PreferencesManager
+import com.grappim.mukk.data.TrackListColumn
 import com.grappim.mukk.data.toData
 import com.grappim.mukk.player.AudioPlayer
 import com.grappim.mukk.player.PlaybackState
@@ -17,8 +21,10 @@ import com.grappim.mukk.scanner.FileScanner
 import com.grappim.mukk.scanner.MetadataReader
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
@@ -29,27 +35,37 @@ class MukkViewModel(
 ) : ViewModel() {
 
     private val _tracks = MutableStateFlow<List<MediaTrackData>>(emptyList())
-    val tracks: StateFlow<List<MediaTrackData>> = _tracks.asStateFlow()
-
-    val playbackState: StateFlow<PlaybackState> = audioPlayer.state
-
     private val _folderTreeState = MutableStateFlow(FolderTreeState())
-    val folderTreeState: StateFlow<FolderTreeState> = _folderTreeState.asStateFlow()
-
     private val _selectedFolderEntries = MutableStateFlow<List<FileEntry>>(emptyList())
-    val selectedFolderEntries: StateFlow<List<FileEntry>> = _selectedFolderEntries.asStateFlow()
-
     private val _selectedTrackPath = MutableStateFlow<String?>(null)
-    val selectedTrackPath: StateFlow<String?> = _selectedTrackPath.asStateFlow()
-
     private val _currentAlbumArt = MutableStateFlow<ByteArray?>(null)
-    val currentAlbumArt: StateFlow<ByteArray?> = _currentAlbumArt.asStateFlow()
-
     private val _currentLyrics = MutableStateFlow<String?>(null)
-    val currentLyrics: StateFlow<String?> = _currentLyrics.asStateFlow()
-
     private val _isScanning = MutableStateFlow(false)
-    val isScanning: StateFlow<Boolean> = _isScanning.asStateFlow()
+    private val _columnConfig = MutableStateFlow(DEFAULT_COLUMN_CONFIG)
+
+    val uiState: StateFlow<MukkUiState> = combine(
+        combine(_folderTreeState, _selectedFolderEntries, _selectedTrackPath, _isScanning, _columnConfig) { fts, sfe, stp, scan, cc ->
+            PrimaryState(fts, sfe, stp, scan, cc)
+        },
+        combine(audioPlayer.state, _tracks, _currentAlbumArt, _currentLyrics) { ps, tracks, art, lyrics ->
+            PlaybackBundle(ps, tracks, art, lyrics)
+        }
+    ) { primary, playback ->
+        val currentTrack = playback.tracks.firstOrNull { it.filePath == playback.playbackState.currentTrackPath }
+        val playingFolderPath = playback.playbackState.currentTrackPath?.let { File(it).parent }
+        MukkUiState(
+            folderTreeState = primary.folderTreeState,
+            selectedFolderEntries = primary.selectedFolderEntries,
+            selectedTrackPath = primary.selectedTrackPath,
+            isScanning = primary.isScanning,
+            columnConfig = primary.columnConfig,
+            playbackState = playback.playbackState,
+            currentTrack = currentTrack,
+            playingFolderPath = playingFolderPath,
+            currentAlbumArt = playback.albumArt,
+            currentLyrics = playback.lyrics
+        )
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, MukkUiState())
 
     private var currentTrackIndex: Int = -1
 
@@ -62,6 +78,7 @@ class MukkViewModel(
         loadTracks()
         restoreFolderTreeState()
         restorePlayingTrack()
+        restoreColumnConfig()
     }
 
     fun scanDirectory(path: String) {
@@ -168,11 +185,11 @@ class MukkViewModel(
     }
 
     fun togglePlayPause() {
-        when (playbackState.value.status) {
+        when (audioPlayer.state.value.status) {
             Status.PLAYING -> pause()
             Status.PAUSED -> resume()
             Status.STOPPED, Status.IDLE -> {
-                val currentPath = playbackState.value.currentTrackPath
+                val currentPath = audioPlayer.state.value.currentTrackPath
                 if (currentPath != null) {
                     audioPlayer.play(currentPath)
                 }
@@ -199,7 +216,7 @@ class MukkViewModel(
     fun nextTrack() {
         val entries = _selectedFolderEntries.value
         if (entries.isEmpty()) return
-        val currentPath = playbackState.value.currentTrackPath
+        val currentPath = audioPlayer.state.value.currentTrackPath
         val currentIdx = entries.indexOfFirst { it.file.absolutePath == currentPath }
         val nextIdx = if (currentIdx < 0) 0 else (currentIdx + 1) % entries.size
         val next = entries[nextIdx]
@@ -213,7 +230,7 @@ class MukkViewModel(
     fun previousTrack() {
         val entries = _selectedFolderEntries.value
         if (entries.isEmpty()) return
-        val currentPath = playbackState.value.currentTrackPath
+        val currentPath = audioPlayer.state.value.currentTrackPath
         val currentIdx = entries.indexOfFirst { it.file.absolutePath == currentPath }
         val prevIdx = if (currentIdx <= 0) entries.lastIndex else currentIdx - 1
         val prev = entries[prevIdx]
@@ -222,6 +239,38 @@ class MukkViewModel(
         audioPlayer.play(prev.file.absolutePath)
         loadNowPlayingExtras(prev.file.absolutePath)
         savePlayingTrack(prev.file.absolutePath)
+    }
+
+    fun toggleColumnVisibility(column: TrackListColumn) {
+        val current = _columnConfig.value.visibleColumns
+        if (column in current) {
+            if (current.size <= 1) return
+            _columnConfig.value = ColumnConfig(current - column)
+        } else {
+            val newList = (current + column).sortedBy { it.ordinal }
+            _columnConfig.value = ColumnConfig(newList)
+        }
+        saveColumnConfig()
+    }
+
+    private fun saveColumnConfig() {
+        val serialized = _columnConfig.value.visibleColumns.joinToString("|") { it.name }
+        PreferencesManager.set("trackList.columns", serialized)
+    }
+
+    private fun restoreColumnConfig() {
+        val saved = PreferencesManager.getString("trackList.columns", "").takeIf { it.isNotEmpty() }
+            ?: return
+        val columns = saved.split("|").mapNotNull { name ->
+            try {
+                TrackListColumn.valueOf(name)
+            } catch (_: IllegalArgumentException) {
+                null
+            }
+        }
+        if (columns.isNotEmpty()) {
+            _columnConfig.value = ColumnConfig(columns)
+        }
     }
 
     private fun savePlayingTrack(filePath: String) {
@@ -343,6 +392,21 @@ class MukkViewModel(
         super.onCleared()
         audioPlayer.dispose()
     }
+
+    private data class PrimaryState(
+        val folderTreeState: FolderTreeState,
+        val selectedFolderEntries: List<FileEntry>,
+        val selectedTrackPath: String?,
+        val isScanning: Boolean,
+        val columnConfig: ColumnConfig
+    )
+
+    private data class PlaybackBundle(
+        val playbackState: PlaybackState,
+        val tracks: List<MediaTrackData>,
+        val albumArt: ByteArray?,
+        val lyrics: String?
+    )
 
     companion object {
         private val AUDIO_EXTENSIONS = setOf("mp3", "flac", "ogg", "wav", "aac", "opus", "m4a")

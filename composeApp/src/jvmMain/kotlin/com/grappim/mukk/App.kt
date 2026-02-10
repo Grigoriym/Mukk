@@ -16,7 +16,6 @@ import com.grappim.mukk.ui.MainLayout
 import com.grappim.mukk.ui.MukkTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import java.io.File
 import javax.swing.JFileChooser
 
 private fun pickDirectoryNative(): String? {
@@ -52,18 +51,8 @@ private fun pickDirectoryNative(): String? {
 
 @Composable
 fun App(viewModel: MukkViewModel) {
-    val tracks by viewModel.tracks.collectAsState()
-    val playbackState by viewModel.playbackState.collectAsState()
-    val folderTreeState by viewModel.folderTreeState.collectAsState()
-    val selectedFolderEntries by viewModel.selectedFolderEntries.collectAsState()
-    val selectedTrackPath by viewModel.selectedTrackPath.collectAsState()
-    val albumArt by viewModel.currentAlbumArt.collectAsState()
-    val lyrics by viewModel.currentLyrics.collectAsState()
-    val isScanning by viewModel.isScanning.collectAsState()
+    val uiState by viewModel.uiState.collectAsState()
     val scope = rememberCoroutineScope()
-
-    val currentTrack = tracks.firstOrNull { it.filePath == playbackState.currentTrackPath }
-    val playingFolderPath = playbackState.currentTrackPath?.let { File(it).parent }
 
     MukkTheme {
         Box(
@@ -79,13 +68,7 @@ fun App(viewModel: MukkViewModel) {
                 }
         ) {
             MainLayout(
-                folderTreeState = folderTreeState,
-                selectedFolderEntries = selectedFolderEntries,
-                playbackState = playbackState,
-                currentTrack = currentTrack,
-                selectedTrackPath = selectedTrackPath,
-                playingFolderPath = playingFolderPath,
-                isScanning = isScanning,
+                uiState = uiState,
                 onToggleExpand = { path -> viewModel.toggleFolderExpanded(path) },
                 onSelectFolder = { path -> viewModel.selectFolder(path) },
                 onRescanClick = { viewModel.rescan() },
@@ -97,6 +80,7 @@ fun App(viewModel: MukkViewModel) {
                         }
                     }
                 },
+                onToggleColumn = { viewModel.toggleColumnVisibility(it) },
                 onTrackClick = { entry -> viewModel.selectTrack(entry.file.absolutePath) },
                 onTrackDoubleClick = { entry -> viewModel.playFile(entry) },
                 getSubfolders = { path -> viewModel.getSubfolders(path) },
@@ -105,8 +89,6 @@ fun App(viewModel: MukkViewModel) {
                 onPrevious = { viewModel.previousTrack() },
                 onNext = { viewModel.nextTrack() },
                 onSeek = { positionMs -> viewModel.seekTo(positionMs) },
-                albumArt = albumArt,
-                lyrics = lyrics,
                 onVolumeChange = { volume -> viewModel.setVolume(volume) }
             )
         }

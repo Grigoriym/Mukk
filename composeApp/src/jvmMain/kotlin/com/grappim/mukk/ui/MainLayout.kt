@@ -24,10 +24,9 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.grappim.mukk.data.FileEntry
-import com.grappim.mukk.data.FolderTreeState
-import com.grappim.mukk.data.MediaTrackData
+import com.grappim.mukk.data.MukkUiState
 import com.grappim.mukk.data.PreferencesManager
-import com.grappim.mukk.player.PlaybackState
+import com.grappim.mukk.data.TrackListColumn
 import java.awt.Cursor
 import java.io.File
 
@@ -38,13 +37,8 @@ private val DEFAULT_RIGHT_WIDTH = 280.dp
 
 @Composable
 fun MainLayout(
-    folderTreeState: FolderTreeState,
-    selectedFolderEntries: List<FileEntry>,
-    playbackState: PlaybackState,
-    currentTrack: MediaTrackData?,
-    selectedTrackPath: String?,
-    playingFolderPath: String?,
-    isScanning: Boolean,
+    uiState: MukkUiState,
+    onToggleColumn: (TrackListColumn) -> Unit,
     onToggleExpand: (String) -> Unit,
     onSelectFolder: (String) -> Unit,
     onOpenFolderClick: () -> Unit,
@@ -57,8 +51,6 @@ fun MainLayout(
     onPrevious: () -> Unit,
     onNext: () -> Unit,
     onSeek: (Long) -> Unit,
-    albumArt: ByteArray?,
-    lyrics: String?,
     onVolumeChange: (Double) -> Unit
 ) {
     var leftPanelWidth by remember {
@@ -81,9 +73,9 @@ fun MainLayout(
     ) {
         Row(modifier = Modifier.weight(1f).fillMaxWidth()) {
             FolderTreePanel(
-                folderTreeState = folderTreeState,
-                playingFolderPath = playingFolderPath,
-                isScanning = isScanning,
+                folderTreeState = uiState.folderTreeState,
+                playingFolderPath = uiState.playingFolderPath,
+                isScanning = uiState.isScanning,
                 onToggleExpand = onToggleExpand,
                 onSelectFolder = onSelectFolder,
                 onOpenFolderClick = onOpenFolderClick,
@@ -103,9 +95,11 @@ fun MainLayout(
             )
 
             TrackListPanel(
-                entries = selectedFolderEntries,
-                currentTrackPath = playbackState.currentTrackPath,
-                selectedTrackPath = selectedTrackPath,
+                entries = uiState.selectedFolderEntries,
+                currentTrackPath = uiState.playbackState.currentTrackPath,
+                selectedTrackPath = uiState.selectedTrackPath,
+                columnConfig = uiState.columnConfig,
+                onToggleColumn = onToggleColumn,
                 onTrackClick = onTrackClick,
                 onTrackDoubleClick = onTrackDoubleClick,
                 modifier = Modifier.weight(1f)
@@ -122,9 +116,9 @@ fun MainLayout(
             )
 
             NowPlayingPanel(
-                currentTrack = currentTrack,
-                albumArt = albumArt,
-                lyrics = lyrics,
+                currentTrack = uiState.currentTrack,
+                albumArt = uiState.currentAlbumArt,
+                lyrics = uiState.currentLyrics,
                 modifier = Modifier.width(rightPanelWidth)
             )
         }
@@ -132,9 +126,9 @@ fun MainLayout(
         HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant)
 
         TransportBar(
-            playbackState = playbackState,
-            currentTrackTitle = currentTrack?.title ?: "",
-            currentTrackArtist = currentTrack?.artist ?: "",
+            playbackState = uiState.playbackState,
+            currentTrackTitle = uiState.currentTrack?.title ?: "",
+            currentTrackArtist = uiState.currentTrack?.artist ?: "",
             onPlayPause = onPlayPause,
             onStop = onStop,
             onPrevious = onPrevious,

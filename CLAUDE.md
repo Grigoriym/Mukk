@@ -99,6 +99,7 @@ ViewModel exposes functions + StateFlows → `App.kt` collects state via `collec
 | `playingTrack` | String | `""` | MukkViewModel |
 | `panel.leftWidth` | Int | `250` | MainLayout |
 | `panel.rightWidth` | Int | `280` | MainLayout |
+| `trackList.columns` | String | `""` | MukkViewModel (`\|`-delimited enum names) |
 
 ## MVP Features
 1. **Media library scanner** — scan directories recursively, read tags with JAudioTagger, store in SQLite ✅
@@ -117,20 +118,24 @@ ViewModel exposes functions + StateFlows → `App.kt` collects state via `collec
 - Right-click context menu on tracks (copy path, open location)
 - Rescan button + scan progress indicator
 - Resizable panels with persisted widths
+- Configurable track list columns (right-click header to toggle, persisted via PreferencesManager)
+- Consolidated UI state into single `MukkUiState` data class (one `StateFlow` from ViewModel, simplified parameter passing)
 
 ## Roadmap / TODO
 
-### 1. Configurable track list columns
-Data model for column definitions (visible, width, order). Right-click on column header to toggle columns on/off. Persist column config to PreferencesManager.
-
-### 2. Auto-scan new folders added at runtime
+### 1. Auto-scan new folders added at runtime
 Currently the folder tree reads the filesystem directly, so new folders appear when expanding/collapsing the tree. However, `FileScanner.scan()` only runs when the user opens a root folder via "Open Folder", so newly added folders have no metadata in the DB (tracks show filenames with no title/artist/album/duration). Need to either: (a) rescan when a folder is selected and has unscanned tracks, or (b) watch the filesystem for changes (`WatchService`), or (c) rely on the rescan button (item #1) as the manual solution.
 
-### 3. Settings screen
+### 2. Settings screen
 Add a settings/preferences UI accessible from the app (e.g., gear icon in the header or a menu). Potential settings to expose over time: audio output device, theme/appearance, default scan directory, playback behavior (e.g., repeat mode, shuffle), column visibility defaults, etc. Use a dialog or a dedicated panel. Persist all settings via PreferencesManager.
 
-### 4. Add dependency injection (Koin)
+### 3. Add dependency injection (Koin)
 Introduce Koin as a lightweight DI framework. Currently all wiring is manual in `main.kt` (AudioPlayer, ViewModel, etc.). As the app grows (settings, more services), a proper DI setup will reduce boilerplate and make dependencies explicit. Koin is the natural choice — pure Kotlin, multiplatform-compatible, no code generation. Define modules for player, data/DB, scanner, and ViewModel layers.
 
-### 5. Add @Preview to composables
+### 4. Add @Preview to composables
 Add `@Preview` annotations to UI composables for faster iteration in the IDE. Requires extracting composables to be previewable — pass data/state as parameters rather than reading from ViewModel directly. Add previews for key screens: FolderTreePanel, TrackListPanel, NowPlayingPanel, TransportBar, SeekBar, VolumeControl. Use sample/mock data for preview states (empty, playing, with lyrics, etc.).
+
+### 5. Investigate and reduce memory usage (~400 MB)
+The app currently consumes ~400 MB in the system resource monitor. Investigate whether this can be reduced. Potential areas to look at: JVM heap settings (default max heap may be oversized — try tuning `-Xmx` in the Compose Desktop config), GStreamer native memory overhead, Compose/Skia rendering buffers, loaded album art kept in memory, Exposed/SQLite connection pool size. Profile with VisualVM or `jcmd` to identify the biggest contributors. Consider whether JVM flags like `-XX:+UseSerialGC` or `-XX:MaxMetaspaceSize` help for a single-user desktop app.
+
+### 6. Add copy file in the context menu (right click on the song)

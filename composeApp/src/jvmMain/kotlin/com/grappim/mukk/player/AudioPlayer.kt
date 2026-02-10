@@ -84,7 +84,7 @@ class AudioPlayer {
 
     fun stop() {
         playBin.stop()
-        _state.update { it.copy(status = Status.STOPPED, positionMs = 0L) }
+        _state.update { it.copy(status = Status.STOPPED, currentTrackPath = null, positionMs = 0L) }
         stopPositionPolling()
     }
 
