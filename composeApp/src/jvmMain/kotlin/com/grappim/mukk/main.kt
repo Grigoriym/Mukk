@@ -4,6 +4,8 @@ package com.grappim.mukk
 
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.snapshotFlow
+import androidx.compose.ui.graphics.painter.BitmapPainter
+import androidx.compose.ui.res.loadImageBitmap
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
@@ -15,6 +17,8 @@ import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
+import org.jetbrains.compose.resources.decodeToImageBitmap
+import java.io.InputStream
 
 fun main() {
     DatabaseInit.init()
@@ -41,7 +45,13 @@ fun main() {
                 .launchIn(this)
         }
 
+        val appIcon = BitmapPainter(
+            Thread.currentThread().contextClassLoader.getResourceAsStream("icon.png")!!.readAllBytes()
+                .decodeToImageBitmap()
+        )
+
         Window(
+            icon = appIcon,
             onCloseRequest = {
                 PreferencesManager.set("window.width", windowState.size.width.value.toInt())
                 PreferencesManager.set("window.height", windowState.size.height.value.toInt())

@@ -38,7 +38,7 @@ kotlin {
     }
 }
 
-
+// ./gradlew packageDeb
 compose.desktop {
     application {
         mainClass = "com.grappim.mukk.MainKt"
@@ -51,6 +51,10 @@ compose.desktop {
             vendor = "Grappim"
 
             modules("java.sql", "java.naming", "jdk.unsupported")
+
+            linux {
+                iconFile.set(project.file("../info/art/logo.png"))
+            }
         }
     }
 }
