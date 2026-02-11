@@ -5,10 +5,12 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import com.grappim.mukk.data.AudioDeviceInfo
 import org.freedesktop.gstreamer.Bus
 import org.freedesktop.gstreamer.Gst
 import org.freedesktop.gstreamer.State
 import org.freedesktop.gstreamer.Version
+import org.freedesktop.gstreamer.device.DeviceMonitor
 import org.freedesktop.gstreamer.elements.PlayBin
 import java.io.File
 import java.util.concurrent.TimeUnit
@@ -101,6 +103,49 @@ class AudioPlayer {
 
     fun setCurrentTrackPath(filePath: String) {
         _state.update { it.copy(currentTrackPath = filePath) }
+    }
+
+    fun getAvailableAudioDevices(): List<AudioDeviceInfo> {
+        val devices = mutableListOf(AudioDeviceInfo("auto", "Automatic (default)"))
+        try {
+            val monitor = DeviceMonitor()
+            monitor.addFilter("Audio/Sink", null)
+            if (monitor.start()) {
+                for (device in monitor.devices) {
+                    devices.add(
+                        AudioDeviceInfo(
+                            name = device.displayName,
+                            displayName = device.displayName
+                        )
+                    )
+                }
+                monitor.stop()
+            }
+        } catch (e: Exception) {
+            System.err.println("Failed to enumerate audio devices: ${e.message}")
+        }
+        return devices
+    }
+
+    fun setAudioDevice(deviceName: String) {
+        if (deviceName == "auto") {
+            playBin.set("audio-sink", null)
+            return
+        }
+        try {
+            val monitor = DeviceMonitor()
+            monitor.addFilter("Audio/Sink", null)
+            if (monitor.start()) {
+                val device = monitor.devices.firstOrNull { it.displayName == deviceName }
+                if (device != null) {
+                    val element = device.createElement("audio-sink")
+                    playBin.set("audio-sink", element)
+                }
+                monitor.stop()
+            }
+        } catch (e: Exception) {
+            System.err.println("Failed to set audio device '$deviceName': ${e.message}")
+        }
     }
 
     fun dispose() {

@@ -9,6 +9,8 @@ import com.grappim.mukk.data.FolderTreeState
 import com.grappim.mukk.data.MediaTrackData
 import com.grappim.mukk.data.MukkUiState
 import com.grappim.mukk.data.PreferencesManager
+import com.grappim.mukk.data.RepeatMode
+import com.grappim.mukk.data.SettingsState
 import com.grappim.mukk.data.TrackListColumn
 import com.grappim.mukk.data.TrackRepository
 import com.grappim.mukk.player.AudioPlayer
@@ -45,6 +47,7 @@ class MukkViewModel(
     private val _currentLyrics = MutableStateFlow<String?>(null)
     private val _isScanning = MutableStateFlow(false)
     private val _columnConfig = MutableStateFlow(DEFAULT_COLUMN_CONFIG)
+    private val _settingsState = MutableStateFlow(SettingsState())
 
     val uiState: StateFlow<MukkUiState> = combine(
         combine(_folderTreeState, _selectedFolderEntries, _selectedTrackPath, _isScanning, _columnConfig) { fts, sfe, stp, scan, cc ->
@@ -52,8 +55,9 @@ class MukkViewModel(
         },
         combine(audioPlayer.state, _tracks, _currentAlbumArt, _currentLyrics) { ps, tracks, art, lyrics ->
             PlaybackBundle(ps, tracks, art, lyrics)
-        }
-    ) { primary, playback ->
+        },
+        _settingsState
+    ) { primary, playback, settings ->
         val currentTrack = playback.tracks.firstOrNull { it.filePath == playback.playbackState.currentTrackPath }
         val playingFolderPath = playback.playbackState.currentTrackPath?.let { File(it).parent }
         MukkUiState(
@@ -66,7 +70,8 @@ class MukkViewModel(
             currentTrack = currentTrack,
             playingFolderPath = playingFolderPath,
             currentAlbumArt = playback.albumArt,
-            currentLyrics = playback.lyrics
+            currentLyrics = playback.lyrics,
+            settingsState = settings
         )
     }.stateIn(viewModelScope, SharingStarted.Eagerly, MukkUiState())
 
@@ -83,6 +88,8 @@ class MukkViewModel(
         restoreFolderTreeState()
         restorePlayingTrack()
         restoreColumnConfig()
+        restoreSettings()
+        loadAudioDevices()
     }
 
     fun scanDirectory(path: String) {
@@ -99,6 +106,7 @@ class MukkViewModel(
                 loadSelectedFolderEntries(path)
                 saveFolderTreeState()
                 startWatching(path)
+                updateSettingsLibraryInfo()
             } finally {
                 _isScanning.value = false
             }
@@ -223,9 +231,41 @@ class MukkViewModel(
     fun nextTrack() {
         val entries = _selectedFolderEntries.value
         if (entries.isEmpty()) return
+
+        val settings = _settingsState.value
         val currentPath = audioPlayer.state.value.currentTrackPath
         val currentIdx = entries.indexOfFirst { it.file.absolutePath == currentPath }
-        val nextIdx = if (currentIdx < 0) 0 else (currentIdx + 1) % entries.size
+
+        if (settings.repeatMode == RepeatMode.ONE) {
+            if (currentIdx >= 0) {
+                val entry = entries[currentIdx]
+                audioPlayer.play(entry.file.absolutePath)
+                loadNowPlayingExtras(entry.file.absolutePath)
+                savePlayingTrack(entry.file.absolutePath)
+            }
+            return
+        }
+
+        val nextIdx = when {
+            settings.shuffleEnabled -> {
+                if (entries.size <= 1) 0
+                else {
+                    var rand: Int
+                    do { rand = entries.indices.random() } while (rand == currentIdx)
+                    rand
+                }
+            }
+            currentIdx < 0 -> 0
+            currentIdx + 1 >= entries.size -> {
+                if (settings.repeatMode == RepeatMode.ALL) 0
+                else {
+                    stop()
+                    return
+                }
+            }
+            else -> currentIdx + 1
+        }
+
         val next = entries[nextIdx]
         currentTrackIndex = nextIdx
         _selectedTrackPath.value = next.file.absolutePath
@@ -246,6 +286,57 @@ class MukkViewModel(
         audioPlayer.play(prev.file.absolutePath)
         loadNowPlayingExtras(prev.file.absolutePath)
         savePlayingTrack(prev.file.absolutePath)
+    }
+
+    fun setRepeatMode(mode: RepeatMode) {
+        _settingsState.update { it.copy(repeatMode = mode) }
+        preferencesManager.set("playback.repeatMode", mode.name)
+    }
+
+    fun toggleShuffle() {
+        _settingsState.update { it.copy(shuffleEnabled = !it.shuffleEnabled) }
+        preferencesManager.set("playback.shuffle", _settingsState.value.shuffleEnabled.toString())
+    }
+
+    fun setAudioDevice(deviceName: String) {
+        val wasPlaying = audioPlayer.state.value.status == Status.PLAYING
+        val currentPath = audioPlayer.state.value.currentTrackPath
+        val currentPosition = audioPlayer.state.value.positionMs
+
+        if (wasPlaying) audioPlayer.pause()
+
+        audioPlayer.setAudioDevice(deviceName)
+        _settingsState.update { it.copy(selectedAudioDevice = deviceName) }
+        preferencesManager.set("audio.device", deviceName)
+
+        if (wasPlaying && currentPath != null) {
+            audioPlayer.play(currentPath)
+            audioPlayer.seekTo(currentPosition)
+        }
+    }
+
+    fun clearLibrary() {
+        viewModelScope.launch {
+            stop()
+            trackRepository.deleteAll()
+            _tracks.value = emptyList()
+            _selectedFolderEntries.value = emptyList()
+            _settingsState.update { it.copy(trackCount = 0) }
+        }
+    }
+
+    fun resetPreferences() {
+        preferencesManager.clear()
+        audioPlayer.setVolume(0.8)
+        _settingsState.update {
+            it.copy(
+                repeatMode = RepeatMode.OFF,
+                shuffleEnabled = false,
+                selectedAudioDevice = "auto"
+            )
+        }
+        audioPlayer.setAudioDevice("auto")
+        _columnConfig.value = DEFAULT_COLUMN_CONFIG
     }
 
     fun toggleColumnVisibility(column: TrackListColumn) {
@@ -334,6 +425,45 @@ class MukkViewModel(
         startWatching(rootPath)
     }
 
+    private fun restoreSettings() {
+        val repeatMode = try {
+            RepeatMode.valueOf(preferencesManager.getString("playback.repeatMode", "OFF"))
+        } catch (_: IllegalArgumentException) {
+            RepeatMode.OFF
+        }
+        val shuffle = preferencesManager.getBoolean("playback.shuffle", false)
+        val device = preferencesManager.getString("audio.device", "auto")
+
+        _settingsState.update {
+            it.copy(
+                repeatMode = repeatMode,
+                shuffleEnabled = shuffle,
+                selectedAudioDevice = device
+            )
+        }
+
+        if (device != "auto") {
+            audioPlayer.setAudioDevice(device)
+        }
+    }
+
+    private fun loadAudioDevices() {
+        viewModelScope.launch {
+            val devices = audioPlayer.getAvailableAudioDevices()
+            _settingsState.update { it.copy(availableAudioDevices = devices) }
+            updateSettingsLibraryInfo()
+        }
+    }
+
+    private fun updateSettingsLibraryInfo() {
+        _settingsState.update {
+            it.copy(
+                libraryPath = _folderTreeState.value.rootPath,
+                trackCount = _tracks.value.size
+            )
+        }
+    }
+
     private fun loadNowPlayingExtras(filePath: String) {
         viewModelScope.launch {
             _currentAlbumArt.value = metadataReader.readAlbumArt(filePath)
@@ -384,6 +514,7 @@ class MukkViewModel(
 
     private suspend fun loadTracksSync() {
         _tracks.value = trackRepository.getAllTracks()
+        updateSettingsLibraryInfo()
     }
 
     private fun startWatching(rootPath: String) {

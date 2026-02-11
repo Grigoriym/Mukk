@@ -39,20 +39,23 @@ com/grappim/mukk/
 │   ├── DatabaseInit.kt      # SQLite connection + schema creation (~/.local/share/mukk/library.db)
 │   ├── MediaTracks.kt       # Exposed table definition
 │   ├── MediaTrackEntity.kt  # Exposed entity + MediaTrackData data class + toData()
+│   ├── TrackRepository.kt   # DB operations: getAllTracks, findByPath, existsByPath, insertIfAbsent, deleteByPath, deleteAll
 │   ├── FileBrowserState.kt  # FileEntry + FolderTreeState data classes
+│   ├── SettingsState.kt     # RepeatMode enum, AudioDeviceInfo, SettingsState data class
 │   └── PreferencesManager.kt # Simple key-value prefs (~/.local/share/mukk/preferences.properties)
 ├── player/
-│   ├── AudioPlayer.kt       # GStreamer PlayBin wrapper with position polling
+│   ├── AudioPlayer.kt       # GStreamer PlayBin wrapper with position polling + device enumeration/selection
 │   └── PlaybackState.kt     # PlaybackState data class + Status enum
 ├── scanner/
-│   ├── FileScanner.kt       # Recursive directory scanner, stores tracks in DB
+│   ├── FileScanner.kt       # Recursive directory scanner, delegates DB ops to TrackRepository
 │   ├── FileSystemWatcher.kt # WatchService wrapper: real-time filesystem monitoring, emits FileSystemEvents
 │   └── MetadataReader.kt    # JAudioTagger wrapper: AudioMetadata, readAlbumArt(), readLyrics()
 └── ui/
     ├── MukkTheme.kt         # Material3 dark color scheme
     ├── MainLayout.kt        # Top-level layout: FolderTree | TrackList | NowPlayingPanel / TransportBar
+    ├── SettingsDialog.kt    # Settings modal: audio output, playback (repeat/shuffle), library management
     ├── NowPlayingPanel.kt   # Album art, metadata, scrollable lyrics for current track
-    ├── FolderTreePanel.kt   # Expandable folder tree with "Mukk" header + open folder button
+    ├── FolderTreePanel.kt   # Expandable folder tree with "Mukk" header + settings/open folder buttons
     ├── TrackListPanel.kt    # Columnar track list (#, File Name, Title, Album, Artist, Duration)
     ├── TransportBar.kt      # Play/pause/stop/skip, seek bar, volume, track info
     └── components/
@@ -85,11 +88,12 @@ Panel dividers are draggable (`DraggableDivider` in MainLayout.kt) with `E_RESIZ
 - `getSubfolders()` is passed as a callback to FolderTreePanel and called inside `remember{}` — synchronous file I/O, memoized on `expandedPaths` changes
 - Native file picker: tries zenity → kdialog → Swing JFileChooser fallback
 - `combinedClickable` (from `ExperimentalFoundationApi`) used in both `FolderTreePanel` and `TrackListPanel` for single/double-click differentiation
+- DB access: all Exposed ORM operations go through `TrackRepository`. Only `data/` package files import Exposed. When adding new DB operations, add methods to `TrackRepository` — never use `transaction {}` directly in ViewModel or scanner code.
 - DB location: `~/.local/share/mukk/library.db`
 - Preferences file: `~/.local/share/mukk/preferences.properties`
 
 ## Dependency Injection (Koin)
-All dependencies are wired via Koin in `di/AppModule.kt`. `DatabaseInit`, `PreferencesManager`, `MetadataReader`, `FileScanner`, `AudioPlayer` are `single{}` singletons. `MukkViewModel` is registered via `viewModel{}`. `main.kt` calls `startKoin` before the Compose window. `App.kt` retrieves `MukkViewModel` via `koinViewModel()` and `PreferencesManager` via `koinInject()`. When adding a new service: create the class → register in `appModule` → inject via constructor (for non-Compose code) or `koinInject()` (for composables).
+All dependencies are wired via Koin in `di/AppModule.kt`. `DatabaseInit`, `PreferencesManager`, `MetadataReader`, `TrackRepository`, `FileScanner`, `AudioPlayer` are `single{}` singletons. `MukkViewModel` is registered via `viewModel{}`. `main.kt` calls `startKoin` before the Compose window. `App.kt` retrieves `MukkViewModel` via `koinViewModel()` and `PreferencesManager` via `koinInject()`. When adding a new service: create the class → register in `appModule` → inject via constructor (for non-Compose code) or `koinInject()` (for composables).
 
 ## Callback Flow
 ViewModel exposes functions + StateFlows → `App.kt` collects state via `collectAsState()` and passes lambdas → `MainLayout` forwards to child panels. All UI composables are stateless — they receive data and callbacks as parameters. When adding a new action: add function to ViewModel → wire lambda in App.kt → thread through MainLayout → use in target panel.
@@ -107,6 +111,9 @@ ViewModel exposes functions + StateFlows → `App.kt` collects state via `collec
 | `panel.leftWidth` | Int | `250` | MainLayout |
 | `panel.rightWidth` | Int | `280` | MainLayout |
 | `trackList.columns` | String | `""` | MukkViewModel (`\|`-delimited enum names) |
+| `playback.repeatMode` | String | `"OFF"` | MukkViewModel (RepeatMode enum name) |
+| `playback.shuffle` | String | `"false"` | MukkViewModel |
+| `audio.device` | String | `"auto"` | MukkViewModel |
 
 ## MVP Features
 1. **Media library scanner** — scan directories recursively, read tags with JAudioTagger, store in SQLite ✅
@@ -129,13 +136,10 @@ ViewModel exposes functions + StateFlows → `App.kt` collects state via `collec
 - Consolidated UI state into single `MukkUiState` data class (one `StateFlow` from ViewModel, simplified parameter passing)
 - Koin DI: all singletons converted from `object` to `class`, explicit dependency graph via `di/AppModule.kt`
 - Auto-scan: on-folder-select scan for unscanned files + real-time filesystem monitoring via `FileSystemWatcher` (WatchService). New/modified audio files get scanned automatically; deleted files are removed from DB and track list; new subdirectories appear in folder tree immediately.
+- TrackRepository: all Exposed ORM operations consolidated in `data/TrackRepository.kt`. `FileScanner` and `MukkViewModel` no longer import Exposed directly — they depend on `TrackRepository` instead.
+- Settings dialog: gear icon in FolderTreePanel header opens modal `SettingsDialog` with three sections — audio output device (GStreamer DeviceMonitor enumeration), playback behavior (repeat off/one/all + shuffle), library management (rescan, clear DB, reset preferences). All settings persisted via PreferencesManager. `nextTrack()` respects repeat/shuffle modes.
 
 ## Roadmap / TODO
-
-### 1. Create a separate file for db operations and all db-stuff there
-
-### 2. Settings screen
-Add a settings/preferences UI accessible from the app (e.g., gear icon in the header or a menu). Potential settings to expose over time: audio output device, theme/appearance, default scan directory, playback behavior (e.g., repeat mode, shuffle), column visibility defaults, etc. Use a dialog or a dedicated panel. Persist all settings via PreferencesManager.
 
 ### 4. Add @Preview to composables
 Add `@Preview` annotations to UI composables for faster iteration in the IDE. Requires extracting composables to be previewable — pass data/state as parameters rather than reading from ViewModel directly. Add previews for key screens: FolderTreePanel, TrackListPanel, NowPlayingPanel, TransportBar, SeekBar, VolumeControl. Use sample/mock data for preview states (empty, playing, with lyrics, etc.).
@@ -154,3 +158,7 @@ The app currently consumes ~400 MB in the system resource monitor. Investigate w
 ### 10. Refactor scanSingleFile which returns either 0 or 1, which is cryptic
 
 ### 11. PlaybackBundle has val albumArt: ByteArray;  IDE says that with 'Array' type in a 'data' class: it is recommended to override 'equals()' and 'hashCode()' 
+
+### 12. On reopening the app, the song that was played is not saved, i.e. the timing, so on restart I need to start the song again, we can make it to be controlled either playing right ahead, or just being in a paused state
+
+### 13. I tried changing tags from songs, and the update wasn't seen in the app, though I rescaned just in case. Clearing the db helped

@@ -20,6 +20,7 @@ import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -54,6 +55,7 @@ fun FolderTreePanel(
     onSelectFolder: (String) -> Unit,
     onOpenFolderClick: () -> Unit,
     onRescanClick: () -> Unit,
+    onSettingsClick: () -> Unit,
     getSubfolders: (String) -> List<Pair<File, Boolean>>,
     modifier: Modifier = Modifier
 ) {
@@ -67,6 +69,7 @@ fun FolderTreePanel(
         HeaderRow(
             onOpenFolderClick = onOpenFolderClick,
             onRescanClick = onRescanClick,
+            onSettingsClick = onSettingsClick,
             showRescan = rootPath != null
         )
 
@@ -115,6 +118,7 @@ fun FolderTreePanel(
 private fun HeaderRow(
     onOpenFolderClick: () -> Unit,
     onRescanClick: () -> Unit,
+    onSettingsClick: () -> Unit,
     showRescan: Boolean
 ) {
     Row(
@@ -131,6 +135,14 @@ private fun HeaderRow(
             color = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.weight(1f)
         )
+        IconButton(onClick = onSettingsClick, modifier = Modifier.size(32.dp)) {
+            Icon(
+                Icons.Default.Settings,
+                contentDescription = "Settings",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(20.dp)
+            )
+        }
         if (showRescan) {
             IconButton(onClick = onRescanClick, modifier = Modifier.size(32.dp)) {
                 Icon(

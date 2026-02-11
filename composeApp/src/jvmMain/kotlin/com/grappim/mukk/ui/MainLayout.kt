@@ -2,26 +2,15 @@ package com.grappim.mukk.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGestures
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.*
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.grappim.mukk.data.FileEntry
 import com.grappim.mukk.data.MukkUiState
@@ -44,6 +33,7 @@ fun MainLayout(
     onSelectFolder: (String) -> Unit,
     onOpenFolderClick: () -> Unit,
     onRescanClick: () -> Unit,
+    onSettingsClick: () -> Unit,
     onTrackClick: (FileEntry) -> Unit,
     onTrackDoubleClick: (FileEntry) -> Unit,
     getSubfolders: (String) -> List<Pair<File, Boolean>>,
@@ -81,6 +71,7 @@ fun MainLayout(
                 onSelectFolder = onSelectFolder,
                 onOpenFolderClick = onOpenFolderClick,
                 onRescanClick = onRescanClick,
+                onSettingsClick = onSettingsClick,
                 getSubfolders = getSubfolders,
                 modifier = Modifier.width(leftPanelWidth)
             )

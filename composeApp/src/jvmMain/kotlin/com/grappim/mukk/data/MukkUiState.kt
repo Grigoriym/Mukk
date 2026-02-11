@@ -12,7 +12,8 @@ data class MukkUiState(
     val currentAlbumArt: ByteArray? = null,
     val currentLyrics: String? = null,
     val isScanning: Boolean = false,
-    val columnConfig: ColumnConfig = DEFAULT_COLUMN_CONFIG
+    val columnConfig: ColumnConfig = DEFAULT_COLUMN_CONFIG,
+    val settingsState: SettingsState = SettingsState()
 ) {
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
@@ -26,7 +27,8 @@ data class MukkUiState(
             currentAlbumArt.contentEquals(other.currentAlbumArt) &&
             currentLyrics == other.currentLyrics &&
             isScanning == other.isScanning &&
-            columnConfig == other.columnConfig
+            columnConfig == other.columnConfig &&
+            settingsState == other.settingsState
     }
 
     override fun hashCode(): Int {
@@ -40,6 +42,7 @@ data class MukkUiState(
         result = 31 * result + (currentLyrics?.hashCode() ?: 0)
         result = 31 * result + isScanning.hashCode()
         result = 31 * result + columnConfig.hashCode()
+        result = 31 * result + settingsState.hashCode()
         return result
     }
 }

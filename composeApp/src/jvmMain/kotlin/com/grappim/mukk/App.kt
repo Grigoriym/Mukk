@@ -5,7 +5,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
@@ -15,6 +18,7 @@ import androidx.compose.ui.input.key.type
 import com.grappim.mukk.data.PreferencesManager
 import com.grappim.mukk.ui.MainLayout
 import com.grappim.mukk.ui.MukkTheme
+import com.grappim.mukk.ui.SettingsDialog
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
@@ -58,6 +62,7 @@ fun App() {
     val preferencesManager = koinInject<PreferencesManager>()
     val uiState by viewModel.uiState.collectAsState()
     val scope = rememberCoroutineScope()
+    var showSettingsDialog by remember { mutableStateOf(false) }
 
     MukkTheme {
         Box(
@@ -78,6 +83,7 @@ fun App() {
                 onToggleExpand = { path -> viewModel.toggleFolderExpanded(path) },
                 onSelectFolder = { path -> viewModel.selectFolder(path) },
                 onRescanClick = { viewModel.rescan() },
+                onSettingsClick = { showSettingsDialog = true },
                 onOpenFolderClick = {
                     scope.launch(Dispatchers.IO) {
                         val path = pickDirectoryNative()
@@ -97,6 +103,19 @@ fun App() {
                 onSeek = { positionMs -> viewModel.seekTo(positionMs) },
                 onVolumeChange = { volume -> viewModel.setVolume(volume) }
             )
+
+            if (showSettingsDialog) {
+                SettingsDialog(
+                    settingsState = uiState.settingsState,
+                    onRepeatModeChange = { viewModel.setRepeatMode(it) },
+                    onShuffleToggle = { viewModel.toggleShuffle() },
+                    onAudioDeviceChange = { viewModel.setAudioDevice(it) },
+                    onRescanAll = { viewModel.rescan() },
+                    onClearLibrary = { viewModel.clearLibrary() },
+                    onResetPreferences = { viewModel.resetPreferences() },
+                    onDismiss = { showSettingsDialog = false }
+                )
+            }
         }
     }
 }

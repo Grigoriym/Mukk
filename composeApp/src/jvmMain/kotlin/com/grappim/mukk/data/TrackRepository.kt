@@ -3,6 +3,7 @@ package com.grappim.mukk.data
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.jdbc.deleteAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 
 class TrackRepository(
@@ -69,6 +70,12 @@ class TrackRepository(
             } else {
                 false
             }
+        }
+    }
+
+    suspend fun deleteAll(): Int = withContext(Dispatchers.IO) {
+        transaction(databaseInit.database) {
+            MediaTracks.deleteAll()
         }
     }
 

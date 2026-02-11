@@ -36,6 +36,18 @@ class PreferencesManager {
     fun getInt(key: String, default: Int): Int =
         properties.getProperty(key)?.toIntOrNull() ?: default
 
+    fun getBoolean(key: String, default: Boolean): Boolean =
+        properties.getProperty(key)?.toBooleanStrictOrNull() ?: default
+
+    fun clear() {
+        properties.clear()
+        scope.launch {
+            writeMutex.withLock {
+                save()
+            }
+        }
+    }
+
     fun set(key: String, value: Any) {
         properties.setProperty(key, value.toString())
         scope.launch {
