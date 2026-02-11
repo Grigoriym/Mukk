@@ -1,19 +1,17 @@
 package com.grappim.mukk.scanner
 
-import com.grappim.mukk.data.DatabaseInit
-import com.grappim.mukk.data.MediaTrackEntity
-import com.grappim.mukk.data.MediaTracks
-import org.jetbrains.exposed.v1.core.eq
-import org.jetbrains.exposed.v1.jdbc.transactions.transaction
+import com.grappim.mukk.data.TrackRepository
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.io.File
 
 class FileScanner(
-    private val databaseInit: DatabaseInit,
+    private val trackRepository: TrackRepository,
     private val metadataReader: MetadataReader
 ) {
 
-    fun scan(directory: File): Int {
-        if (!directory.isDirectory) return 0
+    suspend fun scan(directory: File): Int = withContext(Dispatchers.IO) {
+        if (!directory.isDirectory) return@withContext 0
 
         var count = 0
         directory.walkTopDown()
@@ -21,63 +19,45 @@ class FileScanner(
             .forEach { file ->
                 count += scanSingleFile(file)
             }
-        return count
+        count
     }
 
-    fun scanFolder(directory: File): Int {
-        if (!directory.isDirectory) return 0
+    suspend fun scanFolder(directory: File): Int = withContext(Dispatchers.IO) {
+        if (!directory.isDirectory) return@withContext 0
 
         var count = 0
-        val files = directory.listFiles() ?: return 0
+        val files = directory.listFiles() ?: return@withContext 0
         files.filter { it.isFile && it.extension.lowercase() in AUDIO_EXTENSIONS }
             .forEach { file ->
                 count += scanSingleFile(file)
             }
-        return count
+        count
     }
 
-    fun removeTrack(filePath: String): Boolean {
-        return transaction(databaseInit.database) {
-            val entity = MediaTrackEntity.find(
-                MediaTracks.filePath eq filePath
-            ).firstOrNull()
-            if (entity != null) {
-                entity.delete()
-                true
-            } else {
-                false
-            }
-        }
+    suspend fun removeTrack(filePath: String): Boolean {
+        return trackRepository.deleteByPath(filePath)
     }
 
-    private fun scanSingleFile(file: File): Int {
-        return transaction(databaseInit.database) {
-            val existing = MediaTrackEntity.find(
-                MediaTracks.filePath eq file.absolutePath
-            ).firstOrNull()
+    private suspend fun scanSingleFile(file: File): Int {
+        if (trackRepository.existsByPath(file.absolutePath)) return 0
 
-            if (existing == null) {
-                val metadata = metadataReader.read(file)
-                MediaTrackEntity.new {
-                    this.filePath = file.absolutePath
-                    this.title = metadata?.title ?: file.nameWithoutExtension
-                    this.artist = metadata?.artist.orEmpty()
-                    this.album = metadata?.album.orEmpty()
-                    this.albumArtist = metadata?.albumArtist.orEmpty()
-                    this.genre = metadata?.genre.orEmpty()
-                    this.trackNumber = metadata?.trackNumber ?: 0
-                    this.discNumber = metadata?.discNumber ?: 0
-                    this.year = metadata?.year ?: 0
-                    this.duration = metadata?.durationMs ?: 0L
-                    this.fileSize = file.length()
-                    this.lastModified = file.lastModified()
-                    this.addedAt = System.currentTimeMillis()
-                }
-                1
-            } else {
-                0
-            }
-        }
+        val metadata = metadataReader.read(file)
+
+        val inserted = trackRepository.insertIfAbsent(
+            filePath = file.absolutePath,
+            title = metadata?.title ?: file.nameWithoutExtension,
+            artist = metadata?.artist.orEmpty(),
+            album = metadata?.album.orEmpty(),
+            albumArtist = metadata?.albumArtist.orEmpty(),
+            genre = metadata?.genre.orEmpty(),
+            trackNumber = metadata?.trackNumber ?: 0,
+            discNumber = metadata?.discNumber ?: 0,
+            year = metadata?.year ?: 0,
+            durationMs = metadata?.durationMs ?: 0L,
+            fileSize = file.length(),
+            lastModified = file.lastModified()
+        )
+        return if (inserted) 1 else 0
     }
 
     companion object {

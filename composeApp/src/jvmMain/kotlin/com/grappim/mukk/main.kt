@@ -58,6 +58,7 @@ fun main() {
                 preferencesManager.set("window.height", windowState.size.height.value.toInt())
                 fileSystemWatcher.stop()
                 audioPlayer.dispose()
+                preferencesManager.dispose()
                 stopKoin()
                 exitApplication()
             },

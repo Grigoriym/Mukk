@@ -4,16 +4,13 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.grappim.mukk.data.ColumnConfig
 import com.grappim.mukk.data.DEFAULT_COLUMN_CONFIG
-import com.grappim.mukk.data.DatabaseInit
 import com.grappim.mukk.data.FileEntry
 import com.grappim.mukk.data.FolderTreeState
 import com.grappim.mukk.data.MediaTrackData
-import com.grappim.mukk.data.MediaTrackEntity
 import com.grappim.mukk.data.MukkUiState
-import com.grappim.mukk.data.MediaTracks
 import com.grappim.mukk.data.PreferencesManager
 import com.grappim.mukk.data.TrackListColumn
-import com.grappim.mukk.data.toData
+import com.grappim.mukk.data.TrackRepository
 import com.grappim.mukk.player.AudioPlayer
 import com.grappim.mukk.player.PlaybackState
 import com.grappim.mukk.player.Status
@@ -21,7 +18,6 @@ import com.grappim.mukk.scanner.FileScanner
 import com.grappim.mukk.scanner.FileSystemEvent
 import com.grappim.mukk.scanner.FileSystemWatcher
 import com.grappim.mukk.scanner.MetadataReader
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -30,13 +26,11 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import org.jetbrains.exposed.v1.core.eq
-import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import java.io.File
 
 class MukkViewModel(
     private val audioPlayer: AudioPlayer,
-    private val databaseInit: DatabaseInit,
+    private val trackRepository: TrackRepository,
     private val preferencesManager: PreferencesManager,
     private val fileScanner: FileScanner,
     private val metadataReader: MetadataReader,
@@ -92,11 +86,11 @@ class MukkViewModel(
     }
 
     fun scanDirectory(path: String) {
-        viewModelScope.launch(Dispatchers.IO) {
+        viewModelScope.launch {
             _isScanning.value = true
             try {
                 fileScanner.scan(File(path))
-                loadTracks()
+                loadTracksSync()
                 _folderTreeState.value = FolderTreeState(
                     rootPath = path,
                     expandedPaths = setOf(path),
@@ -113,11 +107,11 @@ class MukkViewModel(
 
     fun rescan() {
         val rootPath = _folderTreeState.value.rootPath ?: return
-        viewModelScope.launch(Dispatchers.IO) {
+        viewModelScope.launch {
             _isScanning.value = true
             try {
                 fileScanner.scan(File(rootPath))
-                loadTracks()
+                loadTracksSync()
                 val selectedPath = _folderTreeState.value.selectedPath
                 if (selectedPath != null) {
                     loadSelectedFolderEntries(selectedPath)
@@ -143,7 +137,7 @@ class MukkViewModel(
         _folderTreeState.value = _folderTreeState.value.copy(selectedPath = path)
         _selectedTrackPath.value = null
         saveFolderTreeState()
-        viewModelScope.launch(Dispatchers.IO) {
+        viewModelScope.launch {
             val scanned = fileScanner.scanFolder(File(path))
             if (scanned > 0) loadTracksSync()
             loadSelectedFolderEntries(path)
@@ -332,7 +326,7 @@ class MukkViewModel(
             selectedPath = selectedPath
         )
 
-        viewModelScope.launch(Dispatchers.IO) {
+        viewModelScope.launch {
             if (selectedPath != null && File(selectedPath).isDirectory) {
                 loadSelectedFolderEntries(selectedPath)
             }
@@ -341,13 +335,13 @@ class MukkViewModel(
     }
 
     private fun loadNowPlayingExtras(filePath: String) {
-        viewModelScope.launch(Dispatchers.IO) {
+        viewModelScope.launch {
             _currentAlbumArt.value = metadataReader.readAlbumArt(filePath)
             _currentLyrics.value = metadataReader.readLyrics(filePath)
         }
     }
 
-    private fun loadSelectedFolderEntries(path: String) {
+    private suspend fun loadSelectedFolderEntries(path: String) {
         val entries = listDirectoryEntries(path).filter { !it.isDirectory }
         _selectedFolderEntries.value = entries
     }
@@ -356,7 +350,7 @@ class MukkViewModel(
         return dir.walkTopDown().any { it.isFile && it.extension.lowercase() in AUDIO_EXTENSIONS }
     }
 
-    private fun listDirectoryEntries(path: String): List<FileEntry> {
+    private suspend fun listDirectoryEntries(path: String): List<FileEntry> {
         val dir = File(path)
         if (!dir.isDirectory) return emptyList()
 
@@ -385,31 +379,24 @@ class MukkViewModel(
                 .thenBy { it.name.lowercase() })
     }
 
-    private fun lookupTrackData(filePath: String): MediaTrackData? {
-        return transaction(databaseInit.database) {
-            MediaTrackEntity.find(MediaTracks.filePath eq filePath)
-                .firstOrNull()
-                ?.toData()
-        }
-    }
+    private suspend fun lookupTrackData(filePath: String): MediaTrackData? =
+        trackRepository.findByPath(filePath)
 
-    private fun loadTracksSync() {
-        _tracks.value = transaction(databaseInit.database) {
-            MediaTrackEntity.all().map { it.toData() }
-        }
+    private suspend fun loadTracksSync() {
+        _tracks.value = trackRepository.getAllTracks()
     }
 
     private fun startWatching(rootPath: String) {
         watcherCollectionJob?.cancel()
         fileSystemWatcher.watch(File(rootPath))
-        watcherCollectionJob = viewModelScope.launch(Dispatchers.IO) {
+        watcherCollectionJob = viewModelScope.launch {
             fileSystemWatcher.events.collect { event ->
                 handleFileSystemEvent(event)
             }
         }
     }
 
-    private fun handleFileSystemEvent(event: FileSystemEvent) {
+    private suspend fun handleFileSystemEvent(event: FileSystemEvent) {
         when (event) {
             is FileSystemEvent.AudioFileChanged -> {
                 fileScanner.scanFolder(File(event.directory))
@@ -459,11 +446,8 @@ class MukkViewModel(
     }
 
     private fun loadTracks() {
-        viewModelScope.launch(Dispatchers.IO) {
-            val data = transaction(databaseInit.database) {
-                MediaTrackEntity.all().map { it.toData() }
-            }
-            _tracks.value = data
+        viewModelScope.launch {
+            _tracks.value = trackRepository.getAllTracks()
         }
     }
 

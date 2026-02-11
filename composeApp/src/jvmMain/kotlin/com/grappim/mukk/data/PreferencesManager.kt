@@ -1,5 +1,12 @@
 package com.grappim.mukk.data
 
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import java.io.File
 import java.util.Properties
 
@@ -11,6 +18,8 @@ class PreferencesManager {
     )
 
     private val properties = Properties()
+    private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private val writeMutex = Mutex()
 
     init {
         if (prefsFile.exists()) {
@@ -29,7 +38,15 @@ class PreferencesManager {
 
     fun set(key: String, value: Any) {
         properties.setProperty(key, value.toString())
-        save()
+        scope.launch {
+            writeMutex.withLock {
+                save()
+            }
+        }
+    }
+
+    fun dispose() {
+        scope.cancel()
     }
 
     private fun save() {

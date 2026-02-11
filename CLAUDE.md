@@ -132,6 +132,8 @@ ViewModel exposes functions + StateFlows → `App.kt` collects state via `collec
 
 ## Roadmap / TODO
 
+### 1. Create a separate file for db operations and all db-stuff there
+
 ### 2. Settings screen
 Add a settings/preferences UI accessible from the app (e.g., gear icon in the header or a menu). Potential settings to expose over time: audio output device, theme/appearance, default scan directory, playback behavior (e.g., repeat mode, shuffle), column visibility defaults, etc. Use a dialog or a dedicated panel. Persist all settings via PreferencesManager.
 
@@ -145,4 +147,10 @@ The app currently consumes ~400 MB in the system resource monitor. Investigate w
 
 ### 7. Do formatTime in viewmodel
 
-### 8. Should we make MetadataReader, FileScanner and maybe some other classes functions suspendable and safe to be launched from ui
+### 8. overhaul loading while adding/scanning new files, by showing scanned/total_number_of_files
+
+### 9. Create a one place for logging which can be called from anywhere, and with that add logs to catch blocks where we swallow exceptions
+
+### 10. Refactor scanSingleFile which returns either 0 or 1, which is cryptic
+
+### 11. PlaybackBundle has val albumArt: ByteArray;  IDE says that with 'Array' type in a 'data' class: it is recommended to override 'equals()' and 'hashCode()' 

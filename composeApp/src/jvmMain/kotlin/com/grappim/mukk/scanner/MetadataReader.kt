@@ -1,5 +1,7 @@
 package com.grappim.mukk.scanner
 
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import org.jaudiotagger.audio.AudioFileIO
 import org.jaudiotagger.tag.FieldKey
 import java.io.File
@@ -25,8 +27,8 @@ class MetadataReader {
         Logger.getLogger("org.jaudiotagger").level = Level.OFF
     }
 
-    fun readAlbumArt(filePath: String): ByteArray? {
-        return try {
+    suspend fun readAlbumArt(filePath: String): ByteArray? = withContext(Dispatchers.IO) {
+        try {
             val audioFile = AudioFileIO.read(File(filePath))
             audioFile.tag?.firstArtwork?.binaryData
         } catch (e: Exception) {
@@ -34,8 +36,8 @@ class MetadataReader {
         }
     }
 
-    fun readLyrics(filePath: String): String? {
-        return try {
+    suspend fun readLyrics(filePath: String): String? = withContext(Dispatchers.IO) {
+        try {
             val audioFile = AudioFileIO.read(File(filePath))
             audioFile.tag?.getFirst(FieldKey.LYRICS)?.takeIf { it.isNotBlank() }
         } catch (e: Exception) {
@@ -43,8 +45,8 @@ class MetadataReader {
         }
     }
 
-    fun read(file: File): AudioMetadata? {
-        return try {
+    suspend fun read(file: File): AudioMetadata? = withContext(Dispatchers.IO) {
+        try {
             val audioFile = AudioFileIO.read(file)
             val tag = audioFile.tag
             val header = audioFile.audioHeader
