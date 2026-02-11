@@ -73,6 +73,43 @@ class TrackRepository(
         }
     }
 
+    suspend fun updateByPath(
+        filePath: String,
+        title: String,
+        artist: String,
+        album: String,
+        albumArtist: String,
+        genre: String,
+        trackNumber: Int,
+        discNumber: Int,
+        year: Int,
+        durationMs: Long,
+        fileSize: Long,
+        lastModified: Long
+    ): Boolean = withContext(Dispatchers.IO) {
+        transaction(databaseInit.database) {
+            val entity = MediaTrackEntity.find(
+                MediaTracks.filePath eq filePath
+            ).firstOrNull()
+            if (entity != null) {
+                entity.title = title
+                entity.artist = artist
+                entity.album = album
+                entity.albumArtist = albumArtist
+                entity.genre = genre
+                entity.trackNumber = trackNumber
+                entity.discNumber = discNumber
+                entity.year = year
+                entity.duration = durationMs
+                entity.fileSize = fileSize
+                entity.lastModified = lastModified
+                true
+            } else {
+                false
+            }
+        }
+    }
+
     suspend fun deleteAll(): Int = withContext(Dispatchers.IO) {
         transaction(databaseInit.database) {
             MediaTracks.deleteAll()

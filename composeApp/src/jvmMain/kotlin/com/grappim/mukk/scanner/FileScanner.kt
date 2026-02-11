@@ -39,10 +39,31 @@ class FileScanner(
     }
 
     private suspend fun scanSingleFile(file: File): Int {
-        if (trackRepository.existsByPath(file.absolutePath)) return 0
+        val existing = trackRepository.findByPath(file.absolutePath)
+
+        if (existing != null) {
+            if (file.lastModified() > existing.lastModified) {
+                val metadata = metadataReader.read(file)
+                trackRepository.updateByPath(
+                    filePath = file.absolutePath,
+                    title = metadata?.title ?: file.nameWithoutExtension,
+                    artist = metadata?.artist.orEmpty(),
+                    album = metadata?.album.orEmpty(),
+                    albumArtist = metadata?.albumArtist.orEmpty(),
+                    genre = metadata?.genre.orEmpty(),
+                    trackNumber = metadata?.trackNumber ?: 0,
+                    discNumber = metadata?.discNumber ?: 0,
+                    year = metadata?.year ?: 0,
+                    durationMs = metadata?.durationMs ?: 0L,
+                    fileSize = file.length(),
+                    lastModified = file.lastModified()
+                )
+                return 1
+            }
+            return 0
+        }
 
         val metadata = metadataReader.read(file)
-
         val inserted = trackRepository.insertIfAbsent(
             filePath = file.absolutePath,
             title = metadata?.title ?: file.nameWithoutExtension,

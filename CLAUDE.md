@@ -152,6 +152,7 @@ ViewModel exposes functions + StateFlows → `App.kt` collects state via `collec
 - TrackRepository: all Exposed ORM operations consolidated in `data/TrackRepository.kt`. `FileScanner` and `MukkViewModel` no longer import Exposed directly — they depend on `TrackRepository` instead.
 - Settings dialog: gear icon in FolderTreePanel header opens modal `SettingsDialog` with three sections — audio output device (GStreamer DeviceMonitor enumeration), playback behavior (repeat off/one/all + shuffle), library management (rescan, clear DB, reset preferences). All settings persisted via PreferencesManager. `nextTrack()` respects repeat/shuffle modes.
 - Centralized logging: `MukkLogger` object in `MukkLogger.kt` — DEBUG/INFO to stdout, WARN/ERROR to stderr, all levels appended to `~/.local/share/mukk/mukk.log`. All 16 catch blocks now have logging with full stack traces.
+- Tag change detection: `FileScanner.scanSingleFile()` compares `file.lastModified()` against DB record — if file is newer, re-reads metadata and updates via `TrackRepository.updateByPath()`. Works with manual rescan, auto-scan (FileSystemWatcher), and folder selection.
 
 ## Roadmap / TODO
 
@@ -173,8 +174,6 @@ The app currently consumes ~400 MB in the system resource monitor. Investigate w
 
 ### 12. On reopening the app, the song that was played is not saved, i.e. the timing, so on restart I need to start the song again, we can make it to be controlled either playing right ahead, or just being in a paused state
 
-### 13. I tried changing tags from songs, and the update wasn't seen in the app, though I rescaned just in case. Clearing the db helped
-
 ### 14. modularisation
 
 ### 15. settings shows that Library is 0, though we have music already
@@ -182,6 +181,8 @@ The app currently consumes ~400 MB in the system resource monitor. Investigate w
 ### 16. when exiting the app you can see "Skia layer is disposed", presumable when we close the app while the music is playing
 
 ### 17. when selecting (clicking) a track in the track list, there is a delay until the track will be highlighted
+
+## 18. noticed the track total length is 0 for some tracks/album, noticed only in sir lord baltimore - all albums
 
 ## Behavioral Guidelines
 
