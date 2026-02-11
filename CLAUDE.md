@@ -157,7 +157,7 @@ ViewModel exposes functions + StateFlows → `App.kt` collects state via `collec
 ## Roadmap / TODO
 
 ### 4. Add @Preview to composables
-Add `@Preview` annotations to UI composables for faster iteration in the IDE. Requires extracting composables to be previewable — pass data/state as parameters rather than reading from ViewModel directly. Add previews for key screens: FolderTreePanel, TrackListPanel, NowPlayingPanel, TransportBar, SeekBar, VolumeControl. Use sample/mock data for preview states (empty, playing, with lyrics, etc.).
+Add `@Preview` annotations to UI composables
 
 ### 5. Investigate and reduce memory usage (~400 MB)
 The app currently consumes ~400 MB in the system resource monitor. Investigate whether this can be reduced. Potential areas to look at: JVM heap settings (default max heap may be oversized — try tuning `-Xmx` in the Compose Desktop config), GStreamer native memory overhead, Compose/Skia rendering buffers, loaded album art kept in memory, Exposed/SQLite connection pool size. Profile with VisualVM or `jcmd` to identify the biggest contributors. Consider whether JVM flags like `-XX:+UseSerialGC` or `-XX:MaxMetaspaceSize` help for a single-user desktop app.
