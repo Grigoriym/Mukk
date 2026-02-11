@@ -32,6 +32,7 @@
 com/grappim/mukk/
 ├── main.kt                  # Entry point: startKoin, window setup, AudioPlayer dispose
 ├── App.kt                   # Root composable: koinViewModel, koinInject, collects state, file picker
+├── MukkLogger.kt            # Centralized logging: object singleton, console + file output
 ├── MukkViewModel.kt         # Central ViewModel: folder tree state, playback, track selection
 ├── di/
 │   └── AppModule.kt         # Koin module: singletons + viewModel factory
@@ -93,6 +94,7 @@ Panel dividers are draggable (`DraggableDivider` in MainLayout.kt) with `E_RESIZ
 - DB location: `~/.local/share/mukk/library.db`
 - Preferences file: `~/.local/share/mukk/preferences.properties`
 - Exposed v1 imports: `deleteAll` needs `org.jetbrains.exposed.v1.jdbc.deleteAll`, `eq` needs `org.jetbrains.exposed.v1.core.eq`, `transaction` needs `org.jetbrains.exposed.v1.jdbc.transactions.transaction`
+- Logging: use `MukkLogger` (`object` singleton, NOT Koin-managed) — callable from anywhere including `main()`, top-level functions, and extension functions. Use `error()` for failures that affect functionality, `warn()` for recoverable issues, `debug()` for expected fallbacks (e.g. zenity not found). Always pass the `Throwable` to preserve stack traces. Log file: `~/.local/share/mukk/mukk.log`.
 - GStreamer device enumeration: `DeviceMonitor` from `org.freedesktop.gstreamer.device`, filter with `addFilter("Audio/Sink", null)`, get devices via `monitor.devices`, create sink element via `device.createElement("audio-sink")`, set on PlayBin via `playBin.set("audio-sink", element)`
 - Adding new settings: create field in `SettingsState` → update `_settingsState` in ViewModel → persist via `preferencesManager.set()` → restore in `restoreSettings()` → expose in `SettingsDialog.kt` (stateless composable). The `uiState` combine uses 3 top-level flows (primary, playback, settings) because Kotlin `combine()` supports max 5 params per call.
 - Settings dialog: rendered conditionally in `App.kt` via `showSettingsDialog` state, opened from gear icon in `FolderTreePanel` header
@@ -149,6 +151,7 @@ ViewModel exposes functions + StateFlows → `App.kt` collects state via `collec
 - Auto-scan: on-folder-select scan for unscanned files + real-time filesystem monitoring via `FileSystemWatcher` (WatchService). New/modified audio files get scanned automatically; deleted files are removed from DB and track list; new subdirectories appear in folder tree immediately.
 - TrackRepository: all Exposed ORM operations consolidated in `data/TrackRepository.kt`. `FileScanner` and `MukkViewModel` no longer import Exposed directly — they depend on `TrackRepository` instead.
 - Settings dialog: gear icon in FolderTreePanel header opens modal `SettingsDialog` with three sections — audio output device (GStreamer DeviceMonitor enumeration), playback behavior (repeat off/one/all + shuffle), library management (rescan, clear DB, reset preferences). All settings persisted via PreferencesManager. `nextTrack()` respects repeat/shuffle modes.
+- Centralized logging: `MukkLogger` object in `MukkLogger.kt` — DEBUG/INFO to stdout, WARN/ERROR to stderr, all levels appended to `~/.local/share/mukk/mukk.log`. All 16 catch blocks now have logging with full stack traces.
 
 ## Roadmap / TODO
 
@@ -163,8 +166,6 @@ The app currently consumes ~400 MB in the system resource monitor. Investigate w
 ### 7. Do formatTime, formatFileSize in viewmodel
 
 ### 8. overhaul loading while adding/scanning new files, by showing scanned/total_number_of_files
-
-### 9. Create a one place for logging which can be called from anywhere, and with that add logs to catch blocks where we swallow exceptions
 
 ### 10. Refactor scanSingleFile which returns either 0 or 1, which is cryptic
 

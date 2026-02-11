@@ -1,5 +1,6 @@
 package com.grappim.mukk.scanner
 
+import com.grappim.mukk.MukkLogger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -74,7 +75,7 @@ class FileSystemWatcher {
                                     try {
                                         registerRecursive(child, ws)
                                     } catch (e: IOException) {
-                                        // inotify limit reached — on-select scan still works
+                                        MukkLogger.warn("FileSystemWatcher", "inotify limit, skipping watch for $child", e)
                                     }
                                     _events.tryEmit(FileSystemEvent.DirectoryCreated(child.toString()))
                                 } else if (isAudioFile(child)) {
@@ -125,7 +126,7 @@ class FileSystemWatcher {
                 }
             }
         } catch (e: IOException) {
-            // WatchService creation failed — on-select scan still works as fallback
+            MukkLogger.warn("FileSystemWatcher", "WatchService creation failed, falling back to on-select scan", e)
         }
     }
 
@@ -135,7 +136,8 @@ class FileSystemWatcher {
         keyToPath.clear()
         try {
             watchService?.close()
-        } catch (_: IOException) {
+        } catch (e: IOException) {
+            MukkLogger.debug("FileSystemWatcher", "Error closing WatchService: ${e.message}")
         }
         watchService = null
     }
@@ -147,7 +149,7 @@ class FileSystemWatcher {
                     val key = dir.register(ws, ENTRY_CREATE, ENTRY_DELETE, ENTRY_MODIFY)
                     keyToPath[key] = dir
                 } catch (e: IOException) {
-                    // inotify limit — skip this directory
+                    MukkLogger.warn("FileSystemWatcher", "inotify limit, skipping watch for $dir", e)
                 }
                 return FileVisitResult.CONTINUE
             }

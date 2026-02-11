@@ -25,6 +25,7 @@ fun main() {
     val koinApp = startKoin {
         modules(appModule)
     }
+    MukkLogger.info("Main", "Mukk starting")
     val koin = koinApp.koin
     val preferencesManager = koin.get<PreferencesManager>()
     val audioPlayer = koin.get<AudioPlayer>()

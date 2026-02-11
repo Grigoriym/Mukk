@@ -1,5 +1,6 @@
 package com.grappim.mukk.scanner
 
+import com.grappim.mukk.MukkLogger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.jaudiotagger.audio.AudioFileIO
@@ -32,6 +33,7 @@ class MetadataReader {
             val audioFile = AudioFileIO.read(File(filePath))
             audioFile.tag?.firstArtwork?.binaryData
         } catch (e: Exception) {
+            MukkLogger.warn("MetadataReader", "Failed to read album art for $filePath", e)
             null
         }
     }
@@ -41,6 +43,7 @@ class MetadataReader {
             val audioFile = AudioFileIO.read(File(filePath))
             audioFile.tag?.getFirst(FieldKey.LYRICS)?.takeIf { it.isNotBlank() }
         } catch (e: Exception) {
+            MukkLogger.warn("MetadataReader", "Failed to read lyrics for $filePath", e)
             null
         }
     }
@@ -64,7 +67,7 @@ class MetadataReader {
                 durationMs = header.trackLength.toLong() * 1000L
             )
         } catch (e: Exception) {
-            System.err.println("Failed to read metadata for ${file.name}: ${e.message}")
+            MukkLogger.warn("MetadataReader", "Failed to read metadata for ${file.name}", e)
             null
         }
     }

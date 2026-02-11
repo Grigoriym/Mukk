@@ -35,7 +35,7 @@ private fun pickDirectoryNative(): String? {
         val output = proc.inputStream.bufferedReader().readText().trim()
         val exitCode = proc.waitFor()
         return if (exitCode == 0 && output.isNotEmpty()) output else null
-    } catch (_: Exception) { /* zenity not available, try next */ }
+    } catch (e: Exception) { MukkLogger.debug("App", "zenity not available: ${e.message}") }
 
     try {
         val proc = ProcessBuilder("kdialog", "--getexistingdirectory", System.getProperty("user.home"))
@@ -44,7 +44,7 @@ private fun pickDirectoryNative(): String? {
         val output = proc.inputStream.bufferedReader().readText().trim()
         val exitCode = proc.waitFor()
         return if (exitCode == 0 && output.isNotEmpty()) output else null
-    } catch (_: Exception) { /* kdialog not available, try next */ }
+    } catch (e: Exception) { MukkLogger.debug("App", "kdialog not available: ${e.message}") }
 
     // Fallback to Swing
     val chooser = JFileChooser().apply {

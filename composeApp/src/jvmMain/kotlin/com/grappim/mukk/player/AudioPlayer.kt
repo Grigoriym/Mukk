@@ -5,6 +5,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import com.grappim.mukk.MukkLogger
 import com.grappim.mukk.data.AudioDeviceInfo
 import org.freedesktop.gstreamer.Bus
 import org.freedesktop.gstreamer.Gst
@@ -37,7 +38,7 @@ class AudioPlayer {
         })
 
         playBin.bus.connect(Bus.ERROR { _, _, message ->
-            System.err.println("GStreamer error: $message")
+            MukkLogger.error("AudioPlayer", "GStreamer error: $message")
             playBin.stop()
             _state.update { it.copy(status = Status.STOPPED, positionMs = 0L) }
             stopPositionPolling()
@@ -56,7 +57,7 @@ class AudioPlayer {
     fun play(filePath: String) {
         val file = File(filePath)
         if (!file.exists()) {
-            System.err.println("File not found: $filePath")
+            MukkLogger.error("AudioPlayer", "File not found: $filePath")
             return
         }
         playBin.stop()
@@ -122,7 +123,7 @@ class AudioPlayer {
                 monitor.stop()
             }
         } catch (e: Exception) {
-            System.err.println("Failed to enumerate audio devices: ${e.message}")
+            MukkLogger.error("AudioPlayer", "Failed to enumerate audio devices", e)
         }
         return devices
     }
@@ -144,7 +145,7 @@ class AudioPlayer {
                 monitor.stop()
             }
         } catch (e: Exception) {
-            System.err.println("Failed to set audio device '$deviceName': ${e.message}")
+            MukkLogger.error("AudioPlayer", "Failed to set audio device '$deviceName'", e)
         }
     }
 

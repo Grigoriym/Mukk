@@ -365,7 +365,8 @@ class MukkViewModel(
         val columns = saved.split("|").mapNotNull { name ->
             try {
                 TrackListColumn.valueOf(name)
-            } catch (_: IllegalArgumentException) {
+            } catch (e: IllegalArgumentException) {
+                MukkLogger.warn("MukkViewModel", "Unknown column name in saved config: $name", e)
                 null
             }
         }
@@ -431,7 +432,8 @@ class MukkViewModel(
     private fun restoreSettings() {
         val repeatMode = try {
             RepeatMode.valueOf(preferencesManager.getString("playback.repeatMode", "OFF"))
-        } catch (_: IllegalArgumentException) {
+        } catch (e: IllegalArgumentException) {
+            MukkLogger.warn("MukkViewModel", "Invalid saved repeat mode, defaulting to OFF", e)
             RepeatMode.OFF
         }
         val shuffle = preferencesManager.getBoolean("playback.shuffle", false)

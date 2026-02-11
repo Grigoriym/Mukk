@@ -30,6 +30,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.grappim.mukk.MukkLogger
 import com.grappim.mukk.data.MediaTrackData
 
 @Composable
@@ -173,6 +174,7 @@ private fun ByteArray.toImageBitmap(): ImageBitmap? {
     return try {
         org.jetbrains.skia.Image.makeFromEncoded(this).toComposeImageBitmap()
     } catch (e: Exception) {
+        MukkLogger.warn("NowPlayingPanel", "Failed to decode album art image", e)
         null
     }
 }
