@@ -20,6 +20,9 @@ import com.grappim.mukk.scanner.FileScanner
 import com.grappim.mukk.scanner.FileSystemEvent
 import com.grappim.mukk.scanner.FileSystemWatcher
 import com.grappim.mukk.scanner.MetadataReader
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -41,7 +44,7 @@ class MukkViewModel(
 
     private val _tracks = MutableStateFlow<List<MediaTrackData>>(emptyList())
     private val _folderTreeState = MutableStateFlow(FolderTreeState())
-    private val _selectedFolderEntries = MutableStateFlow<List<FileEntry>>(emptyList())
+    private val _selectedFolderEntries = MutableStateFlow<ImmutableList<FileEntry>>(persistentListOf())
     private val _selectedTrackPath = MutableStateFlow<String?>(null)
     private val _currentAlbumArt = MutableStateFlow<ByteArray?>(null)
     private val _currentLyrics = MutableStateFlow<String?>(null)
@@ -320,7 +323,7 @@ class MukkViewModel(
             stop()
             trackRepository.deleteAll()
             _tracks.value = emptyList()
-            _selectedFolderEntries.value = emptyList()
+            _selectedFolderEntries.value = persistentListOf()
             _settingsState.update { it.copy(trackCount = 0) }
         }
     }
@@ -472,7 +475,7 @@ class MukkViewModel(
     }
 
     private suspend fun loadSelectedFolderEntries(path: String) {
-        val entries = listDirectoryEntries(path).filter { !it.isDirectory }
+        val entries = listDirectoryEntries(path).filter { !it.isDirectory }.toImmutableList()
         _selectedFolderEntries.value = entries
     }
 
@@ -590,7 +593,7 @@ class MukkViewModel(
 
     private data class PrimaryState(
         val folderTreeState: FolderTreeState,
-        val selectedFolderEntries: List<FileEntry>,
+        val selectedFolderEntries: ImmutableList<FileEntry>,
         val selectedTrackPath: String?,
         val isScanning: Boolean,
         val columnConfig: ColumnConfig

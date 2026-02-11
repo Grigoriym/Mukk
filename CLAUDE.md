@@ -79,7 +79,8 @@ Panel dividers are draggable (`DraggableDivider` in MainLayout.kt) with `E_RESIZ
 - **`selectedTrackPath`** — path of the track highlighted by single-click (distinct from playing track)
 - **`currentAlbumArt`** — `ByteArray?` loaded on-the-fly when playback starts, cleared on stop
 - **`currentLyrics`** — `String?` loaded on-the-fly when playback starts, cleared on stop
-- Next/Previous track cycles within `selectedFolderEntries`
+- Next/Previous track cycles within `selectedFolderEntries`, respecting repeat mode (OFF/ONE/ALL) and shuffle
+- **`SettingsState`** — `repeatMode`, `shuffleEnabled`, `availableAudioDevices`, `selectedAudioDevice`, `libraryPath`, `trackCount`. Managed via `_settingsState` MutableStateFlow in ViewModel, combined as 3rd top-level flow into `uiState`.
 
 ## Key Patterns
 - Audio file extensions: `mp3, flac, ogg, wav, aac, opus, m4a` (defined in both `FileScanner` and `MukkViewModel`)
@@ -91,6 +92,16 @@ Panel dividers are draggable (`DraggableDivider` in MainLayout.kt) with `E_RESIZ
 - DB access: all Exposed ORM operations go through `TrackRepository`. Only `data/` package files import Exposed. When adding new DB operations, add methods to `TrackRepository` — never use `transaction {}` directly in ViewModel or scanner code.
 - DB location: `~/.local/share/mukk/library.db`
 - Preferences file: `~/.local/share/mukk/preferences.properties`
+- Exposed v1 imports: `deleteAll` needs `org.jetbrains.exposed.v1.jdbc.deleteAll`, `eq` needs `org.jetbrains.exposed.v1.core.eq`, `transaction` needs `org.jetbrains.exposed.v1.jdbc.transactions.transaction`
+- GStreamer device enumeration: `DeviceMonitor` from `org.freedesktop.gstreamer.device`, filter with `addFilter("Audio/Sink", null)`, get devices via `monitor.devices`, create sink element via `device.createElement("audio-sink")`, set on PlayBin via `playBin.set("audio-sink", element)`
+- Adding new settings: create field in `SettingsState` → update `_settingsState` in ViewModel → persist via `preferencesManager.set()` → restore in `restoreSettings()` → expose in `SettingsDialog.kt` (stateless composable). The `uiState` combine uses 3 top-level flows (primary, playback, settings) because Kotlin `combine()` supports max 5 params per call.
+- Settings dialog: rendered conditionally in `App.kt` via `showSettingsDialog` state, opened from gear icon in `FolderTreePanel` header
+
+## Android/Compose Rules
+
+- Do not use early returns in Composable functions — use conditional wrapping
+- Lambda parameters: present tense (`onClick` not `onClicked`)
+- Prefer `kotlinx-collections-immutable` (`ImmutableList`, `persistentListOf()`) over `List`/`MutableList` in state classes and Composable parameters for stable recomposition
 
 ## Dependency Injection (Koin)
 All dependencies are wired via Koin in `di/AppModule.kt`. `DatabaseInit`, `PreferencesManager`, `MetadataReader`, `TrackRepository`, `FileScanner`, `AudioPlayer` are `single{}` singletons. `MukkViewModel` is registered via `viewModel{}`. `main.kt` calls `startKoin` before the Compose window. `App.kt` retrieves `MukkViewModel` via `koinViewModel()` and `PreferencesManager` via `koinInject()`. When adding a new service: create the class → register in `appModule` → inject via constructor (for non-Compose code) or `koinInject()` (for composables).
@@ -149,7 +160,7 @@ The app currently consumes ~400 MB in the system resource monitor. Investigate w
 
 ### 6. Add copy file in the context menu (right click on the song)
 
-### 7. Do formatTime in viewmodel
+### 7. Do formatTime, formatFileSize in viewmodel
 
 ### 8. overhaul loading while adding/scanning new files, by showing scanned/total_number_of_files
 
@@ -157,10 +168,77 @@ The app currently consumes ~400 MB in the system resource monitor. Investigate w
 
 ### 10. Refactor scanSingleFile which returns either 0 or 1, which is cryptic
 
-### 11. PlaybackBundle has val albumArt: ByteArray;  IDE says that with 'Array' type in a 'data' class: it is recommended to override 'equals()' and 'hashCode()' 
+### 11. PlaybackBundle has val albumArt: ByteArray; IDE says that with 'Array' type in a 'data' class: it is recommended to override 'equals()' and 'hashCode()' 
 
 ### 12. On reopening the app, the song that was played is not saved, i.e. the timing, so on restart I need to start the song again, we can make it to be controlled either playing right ahead, or just being in a paused state
 
 ### 13. I tried changing tags from songs, and the update wasn't seen in the app, though I rescaned just in case. Clearing the db helped
 
 ### 14. modularisation
+
+### 15. settings shows that Library is 0, though we have music already
+
+### 16. when exiting the app you can see "Skia layer is disposed", presumable when we close the app while the music is playing
+
+### 17. when selecting (clicking) a track in the track list, there is a delay until the track will be highlighted
+
+## Behavioral Guidelines
+
+**Tradeoff:** These guidelines bias toward caution over speed. For trivial tasks, use judgment.
+
+### 1. Think Before Coding
+
+**Don't assume. Don't hide confusion. Surface tradeoffs.**
+
+Before implementing:
+- State your assumptions explicitly. If uncertain, ask.
+- If multiple interpretations exist, present them - don't pick silently.
+- If a simpler approach exists, say so. Push back when warranted.
+- If something is unclear, stop. Name what's confusing. Ask.
+
+### 2. Simplicity First
+
+**Minimum code that solves the problem. Nothing speculative.**
+
+- No features beyond what was asked.
+- No abstractions for single-use code.
+- No "flexibility" or "configurability" that wasn't requested.
+- No error handling for impossible scenarios.
+- If you write 200 lines and it could be 50, rewrite it.
+
+Ask yourself: "Would a senior engineer say this is overcomplicated?" If yes, simplify.
+
+### 3. Surgical Changes
+
+**Touch only what you must. Clean up only your own mess.**
+
+When editing existing code:
+- Don't "improve" adjacent code, comments, or formatting.
+- Don't refactor things that aren't broken.
+- Match existing style, even if you'd do it differently.
+- If you notice unrelated dead code, mention it - don't delete it.
+- **Don't add UI elements or navigation that weren't asked for** - if asked to create a settings screen, don't add a settings button to other screens unless explicitly requested.
+
+When your changes create orphans:
+- Remove imports/variables/functions that YOUR changes made unused.
+- Don't remove pre-existing dead code unless asked.
+
+The test: Every changed line should trace directly to the user's request.
+
+### 4. Goal-Driven Execution
+
+**Define success criteria. Loop until verified.**
+
+Transform tasks into verifiable goals:
+- "Add validation" → "Write tests for invalid inputs, then make them pass"
+- "Fix the bug" → "Write a test that reproduces it, then make it pass"
+- "Refactor X" → "Ensure tests pass before and after"
+
+For multi-step tasks, state a brief plan:
+```
+1. [Step] → verify: [check]
+2. [Step] → verify: [check]
+3. [Step] → verify: [check]
+```
+
+Strong success criteria let you loop independently. Weak criteria ("make it work") require constant clarification.

@@ -124,9 +124,8 @@ fun TransportBar(
             }
 
             VolumeControl(
-                volume = playbackState.volume,
-                onVolumeChange = onVolumeChange,
-                volumeIcon = Icons.AutoMirrored.Filled.VolumeUp
+                volume = playbackState.volume.toFloat(),
+                onVolumeChange = onVolumeChange
             )
         }
     }

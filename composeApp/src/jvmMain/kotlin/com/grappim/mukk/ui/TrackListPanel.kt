@@ -1,26 +1,14 @@
+@file:OptIn(ExperimentalComposeUiApi::class)
+
 package com.grappim.mukk.ui
 
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.Checkbox
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
@@ -35,13 +23,13 @@ import androidx.compose.ui.unit.dp
 import com.grappim.mukk.data.ColumnConfig
 import com.grappim.mukk.data.FileEntry
 import com.grappim.mukk.data.TrackListColumn
+import com.grappim.mukk.ui.components.TrackContextDropdownMenu
 import com.grappim.mukk.ui.components.formatTime
-import java.awt.Toolkit
-import java.awt.datatransfer.StringSelection
+import kotlinx.collections.immutable.ImmutableList
 
 @Composable
 fun TrackListPanel(
-    entries: List<FileEntry>,
+    entries: ImmutableList<FileEntry>,
     currentTrackPath: String?,
     selectedTrackPath: String?,
     columnConfig: ColumnConfig,
@@ -90,18 +78,22 @@ private fun getColumnValue(column: TrackListColumn, entry: FileEntry): String {
     return when (column) {
         TrackListColumn.TRACK_NUMBER ->
             if (track != null && track.trackNumber > 0) track.trackNumber.toString() else "-"
+
         TrackListColumn.FILE_NAME -> entry.file.name
         TrackListColumn.TITLE -> track?.title ?: "-"
         TrackListColumn.ALBUM -> track?.album?.ifEmpty { "-" } ?: "-"
         TrackListColumn.ARTIST -> track?.artist?.ifEmpty { "-" } ?: "-"
         TrackListColumn.DURATION ->
             if (track != null && track.duration > 0) formatTime(track.duration) else "-"
+
         TrackListColumn.ALBUM_ARTIST -> track?.albumArtist?.ifEmpty { "-" } ?: "-"
         TrackListColumn.GENRE -> track?.genre?.ifEmpty { "-" } ?: "-"
         TrackListColumn.YEAR ->
             if (track != null && track.year > 0) track.year.toString() else "-"
+
         TrackListColumn.DISC_NUMBER ->
             if (track != null && track.discNumber > 0) track.discNumber.toString() else "-"
+
         TrackListColumn.FILE_SIZE ->
             if (track != null && track.fileSize > 0) formatFileSize(track.fileSize) else "-"
     }
@@ -138,36 +130,20 @@ private fun TrackListHeader(
     columnConfig: ColumnConfig,
     onToggleColumn: (TrackListColumn) -> Unit
 ) {
-    var showColumnMenu by remember { mutableStateOf(false) }
-    var menuOffset by remember { mutableStateOf(DpOffset.Zero) }
-    val density = LocalDensity.current
+    var showContextMenu by remember { mutableStateOf(false) }
+    var contextMenuOffset by remember { mutableStateOf(DpOffset.Zero) }
 
     Box {
-        Row(
+        PointerAwareRow(
             modifier = Modifier
-                .fillMaxWidth()
-                .pointerInput(Unit) {
-                    awaitPointerEventScope {
-                        while (true) {
-                            val event = awaitPointerEvent()
-                            if (event.type == PointerEventType.Press &&
-                                event.button == PointerButton.Secondary
-                            ) {
-                                val position = event.changes.first().position
-                                with(density) {
-                                    menuOffset = DpOffset(
-                                        x = position.x.toDp(),
-                                        y = position.y.toDp() - size.height.toDp()
-                                    )
-                                }
-                                showColumnMenu = true
-                            }
-                        }
-                    }
-                }
                 .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
                 .padding(horizontal = 16.dp, vertical = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            setContextMenuOffset = { value ->
+                contextMenuOffset = value
+            },
+            showContextMenu = { value ->
+                showContextMenu = value
+            },
         ) {
             columnConfig.visibleColumns.forEach { column ->
                 Text(
@@ -180,12 +156,51 @@ private fun TrackListHeader(
         }
 
         ColumnVisibilityMenu(
-            expanded = showColumnMenu,
-            onDismiss = { showColumnMenu = false },
-            offset = menuOffset,
+            expanded = showContextMenu,
+            onDismiss = { showContextMenu = false },
+            offset = contextMenuOffset,
             columnConfig = columnConfig,
             onToggleColumn = onToggleColumn
         )
+    }
+}
+
+@Composable
+private fun PointerAwareRow(
+    setContextMenuOffset: (DpOffset) -> Unit,
+    showContextMenu: (Boolean) -> Unit,
+    modifier: Modifier = Modifier,
+    content: @Composable RowScope.() -> Unit,
+) {
+    val density = LocalDensity.current
+
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .pointerInput(Unit) {
+                awaitPointerEventScope {
+                    while (true) {
+                        val event = awaitPointerEvent()
+                        if (event.type == PointerEventType.Press &&
+                            event.button == PointerButton.Secondary
+                        ) {
+                            val position = event.changes.first().position
+                            with(density) {
+                                setContextMenuOffset(
+                                    DpOffset(
+                                        x = position.x.toDp(),
+                                        y = position.y.toDp() - size.height.toDp()
+                                    )
+                                )
+                            }
+                            showContextMenu(true)
+                        }
+                    }
+                }
+            },
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        content()
     }
 }
 
@@ -223,7 +238,6 @@ private fun ColumnVisibilityMenu(
     }
 }
 
-@OptIn(ExperimentalFoundationApi::class, ExperimentalComposeUiApi::class)
 @Composable
 private fun TrackRow(
     entry: FileEntry,
@@ -246,38 +260,22 @@ private fun TrackRow(
 
     var showContextMenu by remember { mutableStateOf(false) }
     var contextMenuOffset by remember { mutableStateOf(DpOffset.Zero) }
-    val density = LocalDensity.current
 
     Box {
-        Row(
+
+        PointerAwareRow(
             modifier = Modifier
-                .fillMaxWidth()
-                .pointerInput(Unit) {
-                    awaitPointerEventScope {
-                        while (true) {
-                            val event = awaitPointerEvent()
-                            if (event.type == PointerEventType.Press &&
-                                event.button == PointerButton.Secondary
-                            ) {
-                                val position = event.changes.first().position
-                                with(density) {
-                                    contextMenuOffset = DpOffset(
-                                        x = position.x.toDp(),
-                                        y = position.y.toDp() - size.height.toDp()
-                                    )
-                                }
-                                showContextMenu = true
-                            }
-                        }
-                    }
-                }
+                .background(bgColor)
                 .combinedClickable(
                     onClick = onClick,
                     onDoubleClick = onDoubleClick
-                )
-                .background(bgColor)
-                .padding(horizontal = 16.dp, vertical = 10.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ).padding(horizontal = 16.dp, vertical = 10.dp),
+            setContextMenuOffset = { value ->
+                contextMenuOffset = value
+            },
+            showContextMenu = { value ->
+                showContextMenu = value
+            },
         ) {
             columnConfig.visibleColumns.forEach { column ->
                 Text(
@@ -291,26 +289,13 @@ private fun TrackRow(
             }
         }
 
-        DropdownMenu(
-            expanded = showContextMenu,
-            onDismissRequest = { showContextMenu = false },
-            offset = contextMenuOffset
-        ) {
-            DropdownMenuItem(
-                text = { Text("Copy file path") },
-                onClick = {
-                    val clipboard = Toolkit.getDefaultToolkit().systemClipboard
-                    clipboard.setContents(StringSelection(entry.file.absolutePath), null)
-                    showContextMenu = false
-                }
-            )
-            DropdownMenuItem(
-                text = { Text("Open file location") },
-                onClick = {
-                    ProcessBuilder("xdg-open", entry.file.parentFile.absolutePath).start()
-                    showContextMenu = false
-                }
-            )
-        }
+        TrackContextDropdownMenu(
+            entry = entry,
+            showContextMenu = showContextMenu,
+            contextMenuOffset = contextMenuOffset,
+            setShowContextMenu = { newValue ->
+                showContextMenu = newValue
+            }
+        )
     }
 }

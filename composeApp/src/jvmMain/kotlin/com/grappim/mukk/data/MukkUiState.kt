@@ -1,10 +1,12 @@
 package com.grappim.mukk.data
 
 import com.grappim.mukk.player.PlaybackState
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
 
 data class MukkUiState(
     val folderTreeState: FolderTreeState = FolderTreeState(),
-    val selectedFolderEntries: List<FileEntry> = emptyList(),
+    val selectedFolderEntries: ImmutableList<FileEntry> = persistentListOf(),
     val selectedTrackPath: String? = null,
     val playbackState: PlaybackState = PlaybackState(),
     val currentTrack: MediaTrackData? = null,
