@@ -5,12 +5,11 @@ import org.jetbrains.exposed.v1.jdbc.SchemaUtils
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import java.io.File
 
-object DatabaseInit {
+class DatabaseInit {
 
-    lateinit var database: Database
-        private set
+    val database: Database
 
-    fun init() {
+    init {
         val dataDir = File(System.getProperty("user.home"), ".local/share/mukk")
         dataDir.mkdirs()
         val dbFile = File(dataDir, "library.db")

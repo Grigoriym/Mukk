@@ -11,6 +11,7 @@
 - **Audio playback**: GStreamer via `gst1-java-core:1.4.0`
 - **Metadata/tags**: JAudioTagger for reading audio file tags
 - **Database**: SQLite via Exposed ORM 1.0.0 + SQLite JDBC 3.51.1.0
+- **DI**: Koin 4.1.1 (`koin-core`, `koin-compose`, `koin-compose-viewmodel`)
 - **State management**: MVVM with Kotlin StateFlow
 - **Language**: Kotlin for all business logic and UI
 
@@ -29,9 +30,11 @@
 ### Source Layout
 ```
 com/grappim/mukk/
-├── main.kt                  # Entry point: init DB, AudioPlayer, ViewModel, window
-├── App.kt                   # Root composable: collects state, wires callbacks, file picker
+├── main.kt                  # Entry point: startKoin, window setup, AudioPlayer dispose
+├── App.kt                   # Root composable: koinViewModel, koinInject, collects state, file picker
 ├── MukkViewModel.kt         # Central ViewModel: folder tree state, playback, track selection
+├── di/
+│   └── AppModule.kt         # Koin module: singletons + viewModel factory
 ├── data/
 │   ├── DatabaseInit.kt      # SQLite connection + schema creation (~/.local/share/mukk/library.db)
 │   ├── MediaTracks.kt       # Exposed table definition
@@ -84,6 +87,9 @@ Panel dividers are draggable (`DraggableDivider` in MainLayout.kt) with `E_RESIZ
 - DB location: `~/.local/share/mukk/library.db`
 - Preferences file: `~/.local/share/mukk/preferences.properties`
 
+## Dependency Injection (Koin)
+All dependencies are wired via Koin in `di/AppModule.kt`. `DatabaseInit`, `PreferencesManager`, `MetadataReader`, `FileScanner`, `AudioPlayer` are `single{}` singletons. `MukkViewModel` is registered via `viewModel{}`. `main.kt` calls `startKoin` before the Compose window. `App.kt` retrieves `MukkViewModel` via `koinViewModel()` and `PreferencesManager` via `koinInject()`. When adding a new service: create the class → register in `appModule` → inject via constructor (for non-Compose code) or `koinInject()` (for composables).
+
 ## Callback Flow
 ViewModel exposes functions + StateFlows → `App.kt` collects state via `collectAsState()` and passes lambdas → `MainLayout` forwards to child panels. All UI composables are stateless — they receive data and callbacks as parameters. When adding a new action: add function to ViewModel → wire lambda in App.kt → thread through MainLayout → use in target panel.
 
@@ -120,6 +126,7 @@ ViewModel exposes functions + StateFlows → `App.kt` collects state via `collec
 - Resizable panels with persisted widths
 - Configurable track list columns (right-click header to toggle, persisted via PreferencesManager)
 - Consolidated UI state into single `MukkUiState` data class (one `StateFlow` from ViewModel, simplified parameter passing)
+- Koin DI: all singletons converted from `object` to `class`, explicit dependency graph via `di/AppModule.kt`
 
 ## Roadmap / TODO
 
@@ -129,8 +136,8 @@ Currently the folder tree reads the filesystem directly, so new folders appear w
 ### 2. Settings screen
 Add a settings/preferences UI accessible from the app (e.g., gear icon in the header or a menu). Potential settings to expose over time: audio output device, theme/appearance, default scan directory, playback behavior (e.g., repeat mode, shuffle), column visibility defaults, etc. Use a dialog or a dedicated panel. Persist all settings via PreferencesManager.
 
-### 3. Add dependency injection (Koin)
-Introduce Koin as a lightweight DI framework. Currently all wiring is manual in `main.kt` (AudioPlayer, ViewModel, etc.). As the app grows (settings, more services), a proper DI setup will reduce boilerplate and make dependencies explicit. Koin is the natural choice — pure Kotlin, multiplatform-compatible, no code generation. Define modules for player, data/DB, scanner, and ViewModel layers.
+### ~~3. Add dependency injection (Koin)~~ ✅
+Done. Koin 4.1.1 with `koin-core`, `koin-compose`, `koin-compose-viewmodel`. All singletons (`DatabaseInit`, `PreferencesManager`, `MetadataReader`, `FileScanner`, `AudioPlayer`) converted from `object` to `class` with constructor injection. `MukkViewModel` receives all deps via constructor. Module defined in `di/AppModule.kt`. `main.kt` uses `startKoin`, `App.kt` uses `koinViewModel()` + `koinInject()`.
 
 ### 4. Add @Preview to composables
 Add `@Preview` annotations to UI composables for faster iteration in the IDE. Requires extracting composables to be previewable — pass data/state as parameters rather than reading from ViewModel directly. Add previews for key screens: FolderTreePanel, TrackListPanel, NowPlayingPanel, TransportBar, SeekBar, VolumeControl. Use sample/mock data for preview states (empty, playing, with lyrics, etc.).
@@ -139,3 +146,5 @@ Add `@Preview` annotations to UI composables for faster iteration in the IDE. Re
 The app currently consumes ~400 MB in the system resource monitor. Investigate whether this can be reduced. Potential areas to look at: JVM heap settings (default max heap may be oversized — try tuning `-Xmx` in the Compose Desktop config), GStreamer native memory overhead, Compose/Skia rendering buffers, loaded album art kept in memory, Exposed/SQLite connection pool size. Profile with VisualVM or `jcmd` to identify the biggest contributors. Consider whether JVM flags like `-XX:+UseSerialGC` or `-XX:MaxMetaspaceSize` help for a single-user desktop app.
 
 ### 6. Add copy file in the context menu (right click on the song)
+
+### 7. Do formatTime in viewmodel

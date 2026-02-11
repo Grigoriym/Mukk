@@ -31,7 +31,11 @@ import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import java.io.File
 
 class MukkViewModel(
-    private val audioPlayer: AudioPlayer
+    private val audioPlayer: AudioPlayer,
+    private val databaseInit: DatabaseInit,
+    private val preferencesManager: PreferencesManager,
+    private val fileScanner: FileScanner,
+    private val metadataReader: MetadataReader
 ) : ViewModel() {
 
     private val _tracks = MutableStateFlow<List<MediaTrackData>>(emptyList())
@@ -72,7 +76,7 @@ class MukkViewModel(
     init {
         audioPlayer.onTrackFinished = { nextTrack() }
 
-        val savedVolume = PreferencesManager.getDouble("volume", 0.8)
+        val savedVolume = preferencesManager.getDouble("volume", 0.8)
         audioPlayer.setVolume(savedVolume)
 
         loadTracks()
@@ -85,7 +89,7 @@ class MukkViewModel(
         viewModelScope.launch(Dispatchers.IO) {
             _isScanning.value = true
             try {
-                FileScanner.scan(File(path))
+                fileScanner.scan(File(path))
                 loadTracks()
                 _folderTreeState.value = FolderTreeState(
                     rootPath = path,
@@ -105,7 +109,7 @@ class MukkViewModel(
         viewModelScope.launch(Dispatchers.IO) {
             _isScanning.value = true
             try {
-                FileScanner.scan(File(rootPath))
+                fileScanner.scan(File(rootPath))
                 loadTracks()
                 val selectedPath = _folderTreeState.value.selectedPath
                 if (selectedPath != null) {
@@ -210,7 +214,7 @@ class MukkViewModel(
 
     fun setVolume(volume: Double) {
         audioPlayer.setVolume(volume)
-        PreferencesManager.set("volume", volume)
+        preferencesManager.set("volume", volume)
     }
 
     fun nextTrack() {
@@ -255,11 +259,11 @@ class MukkViewModel(
 
     private fun saveColumnConfig() {
         val serialized = _columnConfig.value.visibleColumns.joinToString("|") { it.name }
-        PreferencesManager.set("trackList.columns", serialized)
+        preferencesManager.set("trackList.columns", serialized)
     }
 
     private fun restoreColumnConfig() {
-        val saved = PreferencesManager.getString("trackList.columns", "").takeIf { it.isNotEmpty() }
+        val saved = preferencesManager.getString("trackList.columns", "").takeIf { it.isNotEmpty() }
             ?: return
         val columns = saved.split("|").mapNotNull { name ->
             try {
@@ -274,15 +278,15 @@ class MukkViewModel(
     }
 
     private fun savePlayingTrack(filePath: String) {
-        PreferencesManager.set("playingTrack", filePath)
+        preferencesManager.set("playingTrack", filePath)
     }
 
     private fun clearPlayingTrack() {
-        PreferencesManager.set("playingTrack", "")
+        preferencesManager.set("playingTrack", "")
     }
 
     private fun restorePlayingTrack() {
-        val path = PreferencesManager.getString("playingTrack", "").takeIf { it.isNotEmpty() }
+        val path = preferencesManager.getString("playingTrack", "").takeIf { it.isNotEmpty() }
             ?: return
         if (!File(path).exists()) return
 
@@ -297,21 +301,21 @@ class MukkViewModel(
 
     private fun saveFolderTreeState() {
         val state = _folderTreeState.value
-        PreferencesManager.set("folderTree.rootPath", state.rootPath ?: "")
-        PreferencesManager.set("folderTree.expandedPaths", state.expandedPaths.joinToString("|"))
-        PreferencesManager.set("folderTree.selectedPath", state.selectedPath ?: "")
+        preferencesManager.set("folderTree.rootPath", state.rootPath ?: "")
+        preferencesManager.set("folderTree.expandedPaths", state.expandedPaths.joinToString("|"))
+        preferencesManager.set("folderTree.selectedPath", state.selectedPath ?: "")
     }
 
     private fun restoreFolderTreeState() {
-        val rootPath = PreferencesManager.getString("folderTree.rootPath", "").takeIf { it.isNotEmpty() }
+        val rootPath = preferencesManager.getString("folderTree.rootPath", "").takeIf { it.isNotEmpty() }
             ?: return
         if (!File(rootPath).isDirectory) return
 
-        val expandedPaths = PreferencesManager.getString("folderTree.expandedPaths", "")
+        val expandedPaths = preferencesManager.getString("folderTree.expandedPaths", "")
             .split("|")
             .filter { it.isNotEmpty() && File(it).isDirectory }
             .toSet()
-        val selectedPath = PreferencesManager.getString("folderTree.selectedPath", "").takeIf { it.isNotEmpty() }
+        val selectedPath = preferencesManager.getString("folderTree.selectedPath", "").takeIf { it.isNotEmpty() }
 
         _folderTreeState.value = FolderTreeState(
             rootPath = rootPath,
@@ -328,8 +332,8 @@ class MukkViewModel(
 
     private fun loadNowPlayingExtras(filePath: String) {
         viewModelScope.launch(Dispatchers.IO) {
-            _currentAlbumArt.value = MetadataReader.readAlbumArt(filePath)
-            _currentLyrics.value = MetadataReader.readLyrics(filePath)
+            _currentAlbumArt.value = metadataReader.readAlbumArt(filePath)
+            _currentLyrics.value = metadataReader.readLyrics(filePath)
         }
     }
 
@@ -372,7 +376,7 @@ class MukkViewModel(
     }
 
     private fun lookupTrackData(filePath: String): MediaTrackData? {
-        return transaction(DatabaseInit.database) {
+        return transaction(databaseInit.database) {
             MediaTrackEntity.find(MediaTracks.filePath eq filePath)
                 .firstOrNull()
                 ?.toData()
@@ -381,7 +385,7 @@ class MukkViewModel(
 
     private fun loadTracks() {
         viewModelScope.launch(Dispatchers.IO) {
-            val data = transaction(DatabaseInit.database) {
+            val data = transaction(databaseInit.database) {
                 MediaTrackEntity.all().map { it.toData() }
             }
             _tracks.value = data

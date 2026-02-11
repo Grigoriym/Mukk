@@ -12,10 +12,13 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
+import com.grappim.mukk.data.PreferencesManager
 import com.grappim.mukk.ui.MainLayout
 import com.grappim.mukk.ui.MukkTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import org.koin.compose.koinInject
+import org.koin.compose.viewmodel.koinViewModel
 import javax.swing.JFileChooser
 
 private fun pickDirectoryNative(): String? {
@@ -50,7 +53,9 @@ private fun pickDirectoryNative(): String? {
 }
 
 @Composable
-fun App(viewModel: MukkViewModel) {
+fun App() {
+    val viewModel = koinViewModel<MukkViewModel>()
+    val preferencesManager = koinInject<PreferencesManager>()
     val uiState by viewModel.uiState.collectAsState()
     val scope = rememberCoroutineScope()
 
@@ -69,6 +74,7 @@ fun App(viewModel: MukkViewModel) {
         ) {
             MainLayout(
                 uiState = uiState,
+                preferencesManager = preferencesManager,
                 onToggleExpand = { path -> viewModel.toggleFolderExpanded(path) },
                 onSelectFolder = { path -> viewModel.selectFolder(path) },
                 onRescanClick = { viewModel.rescan() },

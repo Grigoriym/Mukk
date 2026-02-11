@@ -18,7 +18,7 @@ data class AudioMetadata(
     val durationMs: Long
 )
 
-object MetadataReader {
+class MetadataReader {
 
     init {
         // Suppress jaudiotagger's verbose logging

@@ -38,6 +38,7 @@ private val DEFAULT_RIGHT_WIDTH = 280.dp
 @Composable
 fun MainLayout(
     uiState: MukkUiState,
+    preferencesManager: PreferencesManager,
     onToggleColumn: (TrackListColumn) -> Unit,
     onToggleExpand: (String) -> Unit,
     onSelectFolder: (String) -> Unit,
@@ -55,12 +56,12 @@ fun MainLayout(
 ) {
     var leftPanelWidth by remember {
         mutableStateOf(
-            PreferencesManager.getInt("panel.leftWidth", DEFAULT_LEFT_WIDTH.value.toInt()).dp
+            preferencesManager.getInt("panel.leftWidth", DEFAULT_LEFT_WIDTH.value.toInt()).dp
         )
     }
     var rightPanelWidth by remember {
         mutableStateOf(
-            PreferencesManager.getInt("panel.rightWidth", DEFAULT_RIGHT_WIDTH.value.toInt()).dp
+            preferencesManager.getInt("panel.rightWidth", DEFAULT_RIGHT_WIDTH.value.toInt()).dp
         )
     }
 
@@ -90,7 +91,7 @@ fun MainLayout(
                     leftPanelWidth = (leftPanelWidth + deltaDp).coerceIn(MIN_PANEL_WIDTH, MAX_PANEL_WIDTH)
                 },
                 onDragEnd = {
-                    PreferencesManager.set("panel.leftWidth", leftPanelWidth.value.toInt())
+                    preferencesManager.set("panel.leftWidth", leftPanelWidth.value.toInt())
                 }
             )
 
@@ -111,7 +112,7 @@ fun MainLayout(
                     rightPanelWidth = (rightPanelWidth - deltaDp).coerceIn(MIN_PANEL_WIDTH, MAX_PANEL_WIDTH)
                 },
                 onDragEnd = {
-                    PreferencesManager.set("panel.rightWidth", rightPanelWidth.value.toInt())
+                    preferencesManager.set("panel.rightWidth", rightPanelWidth.value.toInt())
                 }
             )
 

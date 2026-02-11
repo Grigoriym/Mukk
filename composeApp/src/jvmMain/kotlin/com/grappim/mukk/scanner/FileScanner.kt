@@ -7,7 +7,10 @@ import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import java.io.File
 
-object FileScanner {
+class FileScanner(
+    private val databaseInit: DatabaseInit,
+    private val metadataReader: MetadataReader
+) {
 
     private val audioExtensions = setOf("mp3", "flac", "ogg", "wav", "aac", "opus", "m4a")
 
@@ -18,13 +21,13 @@ object FileScanner {
         directory.walkTopDown()
             .filter { it.isFile && it.extension.lowercase() in audioExtensions }
             .forEach { file ->
-                transaction(DatabaseInit.database) {
+                transaction(databaseInit.database) {
                     val existing = MediaTrackEntity.find(
                         MediaTracks.filePath eq file.absolutePath
                     ).firstOrNull()
 
                     if (existing == null) {
-                        val metadata = MetadataReader.read(file)
+                        val metadata = metadataReader.read(file)
                         MediaTrackEntity.new {
                             this.filePath = file.absolutePath
                             this.title = metadata?.title ?: file.nameWithoutExtension

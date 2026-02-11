@@ -14,7 +14,6 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material.icons.filled.Stop
-import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -23,6 +22,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.grappim.mukk.player.PlaybackState
 import com.grappim.mukk.player.Status
@@ -129,5 +129,23 @@ fun TransportBar(
                 volumeIcon = Icons.AutoMirrored.Filled.VolumeUp
             )
         }
+    }
+}
+
+@Composable
+@Preview
+private fun TransportBarPreview() {
+    MukkTheme {
+        TransportBar(
+            playbackState = PlaybackState(),
+            currentTrackTitle = "Test",
+            currentTrackArtist = "TestArtist",
+            onPlayPause = {},
+            onStop = {},
+            onPrevious = {},
+            onNext = {},
+            onSeek = {},
+            onVolumeChange = {}
+        )
     }
 }

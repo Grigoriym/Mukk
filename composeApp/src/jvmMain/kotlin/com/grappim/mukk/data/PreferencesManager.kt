@@ -3,7 +3,7 @@ package com.grappim.mukk.data
 import java.io.File
 import java.util.Properties
 
-object PreferencesManager {
+class PreferencesManager {
 
     private val prefsFile = File(
         System.getProperty("user.home"),
@@ -12,7 +12,7 @@ object PreferencesManager {
 
     private val properties = Properties()
 
-    fun load() {
+    init {
         if (prefsFile.exists()) {
             prefsFile.inputStream().use { properties.load(it) }
         }
