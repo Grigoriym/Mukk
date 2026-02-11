@@ -162,3 +162,5 @@ The app currently consumes ~400 MB in the system resource monitor. Investigate w
 ### 12. On reopening the app, the song that was played is not saved, i.e. the timing, so on restart I need to start the song again, we can make it to be controlled either playing right ahead, or just being in a paused state
 
 ### 13. I tried changing tags from songs, and the update wasn't seen in the app, though I rescaned just in case. Clearing the db helped
+
+### 14. modularisation
