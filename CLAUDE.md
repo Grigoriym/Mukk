@@ -46,6 +46,7 @@ com/grappim/mukk/
 │   └── PlaybackState.kt     # PlaybackState data class + Status enum
 ├── scanner/
 │   ├── FileScanner.kt       # Recursive directory scanner, stores tracks in DB
+│   ├── FileSystemWatcher.kt # WatchService wrapper: real-time filesystem monitoring, emits FileSystemEvents
 │   └── MetadataReader.kt    # JAudioTagger wrapper: AudioMetadata, readAlbumArt(), readLyrics()
 └── ui/
     ├── MukkTheme.kt         # Material3 dark color scheme
@@ -127,17 +128,12 @@ ViewModel exposes functions + StateFlows → `App.kt` collects state via `collec
 - Configurable track list columns (right-click header to toggle, persisted via PreferencesManager)
 - Consolidated UI state into single `MukkUiState` data class (one `StateFlow` from ViewModel, simplified parameter passing)
 - Koin DI: all singletons converted from `object` to `class`, explicit dependency graph via `di/AppModule.kt`
+- Auto-scan: on-folder-select scan for unscanned files + real-time filesystem monitoring via `FileSystemWatcher` (WatchService). New/modified audio files get scanned automatically; deleted files are removed from DB and track list; new subdirectories appear in folder tree immediately.
 
 ## Roadmap / TODO
 
-### 1. Auto-scan new folders added at runtime
-Currently the folder tree reads the filesystem directly, so new folders appear when expanding/collapsing the tree. However, `FileScanner.scan()` only runs when the user opens a root folder via "Open Folder", so newly added folders have no metadata in the DB (tracks show filenames with no title/artist/album/duration). Need to either: (a) rescan when a folder is selected and has unscanned tracks, or (b) watch the filesystem for changes (`WatchService`), or (c) rely on the rescan button (item #1) as the manual solution.
-
 ### 2. Settings screen
 Add a settings/preferences UI accessible from the app (e.g., gear icon in the header or a menu). Potential settings to expose over time: audio output device, theme/appearance, default scan directory, playback behavior (e.g., repeat mode, shuffle), column visibility defaults, etc. Use a dialog or a dedicated panel. Persist all settings via PreferencesManager.
-
-### ~~3. Add dependency injection (Koin)~~ ✅
-Done. Koin 4.1.1 with `koin-core`, `koin-compose`, `koin-compose-viewmodel`. All singletons (`DatabaseInit`, `PreferencesManager`, `MetadataReader`, `FileScanner`, `AudioPlayer`) converted from `object` to `class` with constructor injection. `MukkViewModel` receives all deps via constructor. Module defined in `di/AppModule.kt`. `main.kt` uses `startKoin`, `App.kt` uses `koinViewModel()` + `koinInject()`.
 
 ### 4. Add @Preview to composables
 Add `@Preview` annotations to UI composables for faster iteration in the IDE. Requires extracting composables to be previewable — pass data/state as parameters rather than reading from ViewModel directly. Add previews for key screens: FolderTreePanel, TrackListPanel, NowPlayingPanel, TransportBar, SeekBar, VolumeControl. Use sample/mock data for preview states (empty, playing, with lyrics, etc.).
@@ -148,3 +144,5 @@ The app currently consumes ~400 MB in the system resource monitor. Investigate w
 ### 6. Add copy file in the context menu (right click on the song)
 
 ### 7. Do formatTime in viewmodel
+
+### 8. Should we make MetadataReader, FileScanner and maybe some other classes functions suspendable and safe to be launched from ui

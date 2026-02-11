@@ -12,6 +12,7 @@ import androidx.compose.ui.window.rememberWindowState
 import com.grappim.mukk.data.PreferencesManager
 import com.grappim.mukk.di.appModule
 import com.grappim.mukk.player.AudioPlayer
+import com.grappim.mukk.scanner.FileSystemWatcher
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.launchIn
@@ -27,6 +28,7 @@ fun main() {
     val koin = koinApp.koin
     val preferencesManager = koin.get<PreferencesManager>()
     val audioPlayer = koin.get<AudioPlayer>()
+    val fileSystemWatcher = koin.get<FileSystemWatcher>()
 
     val savedWidth = preferencesManager.getInt("window.width", 1024)
     val savedHeight = preferencesManager.getInt("window.height", 700)
@@ -54,6 +56,7 @@ fun main() {
             onCloseRequest = {
                 preferencesManager.set("window.width", windowState.size.width.value.toInt())
                 preferencesManager.set("window.height", windowState.size.height.value.toInt())
+                fileSystemWatcher.stop()
                 audioPlayer.dispose()
                 stopKoin()
                 exitApplication()

@@ -18,13 +18,17 @@ import com.grappim.mukk.player.AudioPlayer
 import com.grappim.mukk.player.PlaybackState
 import com.grappim.mukk.player.Status
 import com.grappim.mukk.scanner.FileScanner
+import com.grappim.mukk.scanner.FileSystemEvent
+import com.grappim.mukk.scanner.FileSystemWatcher
 import com.grappim.mukk.scanner.MetadataReader
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
@@ -35,7 +39,8 @@ class MukkViewModel(
     private val databaseInit: DatabaseInit,
     private val preferencesManager: PreferencesManager,
     private val fileScanner: FileScanner,
-    private val metadataReader: MetadataReader
+    private val metadataReader: MetadataReader,
+    private val fileSystemWatcher: FileSystemWatcher
 ) : ViewModel() {
 
     private val _tracks = MutableStateFlow<List<MediaTrackData>>(emptyList())
@@ -72,6 +77,7 @@ class MukkViewModel(
     }.stateIn(viewModelScope, SharingStarted.Eagerly, MukkUiState())
 
     private var currentTrackIndex: Int = -1
+    private var watcherCollectionJob: Job? = null
 
     init {
         audioPlayer.onTrackFinished = { nextTrack() }
@@ -98,6 +104,7 @@ class MukkViewModel(
                 )
                 loadSelectedFolderEntries(path)
                 saveFolderTreeState()
+                startWatching(path)
             } finally {
                 _isScanning.value = false
             }
@@ -137,6 +144,8 @@ class MukkViewModel(
         _selectedTrackPath.value = null
         saveFolderTreeState()
         viewModelScope.launch(Dispatchers.IO) {
+            val scanned = fileScanner.scanFolder(File(path))
+            if (scanned > 0) loadTracksSync()
             loadSelectedFolderEntries(path)
         }
     }
@@ -328,6 +337,7 @@ class MukkViewModel(
                 loadSelectedFolderEntries(selectedPath)
             }
         }
+        startWatching(rootPath)
     }
 
     private fun loadNowPlayingExtras(filePath: String) {
@@ -383,6 +393,71 @@ class MukkViewModel(
         }
     }
 
+    private fun loadTracksSync() {
+        _tracks.value = transaction(databaseInit.database) {
+            MediaTrackEntity.all().map { it.toData() }
+        }
+    }
+
+    private fun startWatching(rootPath: String) {
+        watcherCollectionJob?.cancel()
+        fileSystemWatcher.watch(File(rootPath))
+        watcherCollectionJob = viewModelScope.launch(Dispatchers.IO) {
+            fileSystemWatcher.events.collect { event ->
+                handleFileSystemEvent(event)
+            }
+        }
+    }
+
+    private fun handleFileSystemEvent(event: FileSystemEvent) {
+        when (event) {
+            is FileSystemEvent.AudioFileChanged -> {
+                fileScanner.scanFolder(File(event.directory))
+                loadTracksSync()
+                val selectedPath = _folderTreeState.value.selectedPath
+                if (selectedPath == event.directory) {
+                    loadSelectedFolderEntries(selectedPath)
+                }
+            }
+
+            is FileSystemEvent.AudioFileDeleted -> {
+                fileScanner.removeTrack(event.filePath)
+                loadTracksSync()
+                val selectedPath = _folderTreeState.value.selectedPath
+                if (selectedPath == event.directory) {
+                    loadSelectedFolderEntries(selectedPath)
+                }
+                val currentPath = audioPlayer.state.value.currentTrackPath
+                if (currentPath == event.filePath) {
+                    stop()
+                }
+            }
+
+            is FileSystemEvent.DirectoryCreated -> {
+                bumpFolderTreeVersion()
+            }
+
+            is FileSystemEvent.DirectoryDeleted -> {
+                val deletedPath = event.directoryPath
+                val current = _folderTreeState.value
+                val newExpanded = current.expandedPaths.filter { !it.startsWith(deletedPath) }.toSet()
+                val newSelected = if (current.selectedPath?.startsWith(deletedPath) == true) null else current.selectedPath
+                _folderTreeState.value = current.copy(
+                    expandedPaths = newExpanded,
+                    selectedPath = newSelected,
+                    version = current.version + 1
+                )
+                if (newSelected != current.selectedPath) {
+                    saveFolderTreeState()
+                }
+            }
+        }
+    }
+
+    private fun bumpFolderTreeVersion() {
+        _folderTreeState.update { it.copy(version = it.version + 1) }
+    }
+
     private fun loadTracks() {
         viewModelScope.launch(Dispatchers.IO) {
             val data = transaction(databaseInit.database) {
@@ -394,6 +469,7 @@ class MukkViewModel(
 
     override fun onCleared() {
         super.onCleared()
+        fileSystemWatcher.stop()
         audioPlayer.dispose()
     }
 

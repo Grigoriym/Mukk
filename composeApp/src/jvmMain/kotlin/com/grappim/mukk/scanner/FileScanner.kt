@@ -12,41 +12,75 @@ class FileScanner(
     private val metadataReader: MetadataReader
 ) {
 
-    private val audioExtensions = setOf("mp3", "flac", "ogg", "wav", "aac", "opus", "m4a")
-
     fun scan(directory: File): Int {
         if (!directory.isDirectory) return 0
 
         var count = 0
         directory.walkTopDown()
-            .filter { it.isFile && it.extension.lowercase() in audioExtensions }
+            .filter { it.isFile && it.extension.lowercase() in AUDIO_EXTENSIONS }
             .forEach { file ->
-                transaction(databaseInit.database) {
-                    val existing = MediaTrackEntity.find(
-                        MediaTracks.filePath eq file.absolutePath
-                    ).firstOrNull()
-
-                    if (existing == null) {
-                        val metadata = metadataReader.read(file)
-                        MediaTrackEntity.new {
-                            this.filePath = file.absolutePath
-                            this.title = metadata?.title ?: file.nameWithoutExtension
-                            this.artist = metadata?.artist.orEmpty()
-                            this.album = metadata?.album.orEmpty()
-                            this.albumArtist = metadata?.albumArtist.orEmpty()
-                            this.genre = metadata?.genre.orEmpty()
-                            this.trackNumber = metadata?.trackNumber ?: 0
-                            this.discNumber = metadata?.discNumber ?: 0
-                            this.year = metadata?.year ?: 0
-                            this.duration = metadata?.durationMs ?: 0L
-                            this.fileSize = file.length()
-                            this.lastModified = file.lastModified()
-                            this.addedAt = System.currentTimeMillis()
-                        }
-                        count++
-                    }
-                }
+                count += scanSingleFile(file)
             }
         return count
+    }
+
+    fun scanFolder(directory: File): Int {
+        if (!directory.isDirectory) return 0
+
+        var count = 0
+        val files = directory.listFiles() ?: return 0
+        files.filter { it.isFile && it.extension.lowercase() in AUDIO_EXTENSIONS }
+            .forEach { file ->
+                count += scanSingleFile(file)
+            }
+        return count
+    }
+
+    fun removeTrack(filePath: String): Boolean {
+        return transaction(databaseInit.database) {
+            val entity = MediaTrackEntity.find(
+                MediaTracks.filePath eq filePath
+            ).firstOrNull()
+            if (entity != null) {
+                entity.delete()
+                true
+            } else {
+                false
+            }
+        }
+    }
+
+    private fun scanSingleFile(file: File): Int {
+        return transaction(databaseInit.database) {
+            val existing = MediaTrackEntity.find(
+                MediaTracks.filePath eq file.absolutePath
+            ).firstOrNull()
+
+            if (existing == null) {
+                val metadata = metadataReader.read(file)
+                MediaTrackEntity.new {
+                    this.filePath = file.absolutePath
+                    this.title = metadata?.title ?: file.nameWithoutExtension
+                    this.artist = metadata?.artist.orEmpty()
+                    this.album = metadata?.album.orEmpty()
+                    this.albumArtist = metadata?.albumArtist.orEmpty()
+                    this.genre = metadata?.genre.orEmpty()
+                    this.trackNumber = metadata?.trackNumber ?: 0
+                    this.discNumber = metadata?.discNumber ?: 0
+                    this.year = metadata?.year ?: 0
+                    this.duration = metadata?.durationMs ?: 0L
+                    this.fileSize = file.length()
+                    this.lastModified = file.lastModified()
+                    this.addedAt = System.currentTimeMillis()
+                }
+                1
+            } else {
+                0
+            }
+        }
+    }
+
+    companion object {
+        val AUDIO_EXTENSIONS = setOf("mp3", "flac", "ogg", "wav", "aac", "opus", "m4a")
     }
 }

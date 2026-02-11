@@ -5,6 +5,7 @@ import com.grappim.mukk.data.DatabaseInit
 import com.grappim.mukk.data.PreferencesManager
 import com.grappim.mukk.player.AudioPlayer
 import com.grappim.mukk.scanner.FileScanner
+import com.grappim.mukk.scanner.FileSystemWatcher
 import com.grappim.mukk.scanner.MetadataReader
 import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
@@ -15,11 +16,13 @@ val appModule = module {
     single { MetadataReader() }
     single { FileScanner(databaseInit = get(), metadataReader = get()) }
     single { AudioPlayer().also { it.init() } }
+    single { FileSystemWatcher() }
     viewModel { MukkViewModel(
         audioPlayer = get(),
         databaseInit = get(),
         preferencesManager = get(),
         fileScanner = get(),
-        metadataReader = get()
+        metadataReader = get(),
+        fileSystemWatcher = get()
     ) }
 }
