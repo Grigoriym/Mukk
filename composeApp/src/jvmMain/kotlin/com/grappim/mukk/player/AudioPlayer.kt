@@ -45,16 +45,18 @@ class AudioPlayer {
         })
 
         playBin.bus.connect { _, _, newState, _ ->
-            if (newState == State.PLAYING) {
-                val durationNs = playBin.queryDuration(TimeUnit.MILLISECONDS)
-                _state.update { it.copy(durationMs = durationNs) }
+            if (newState == State.PLAYING || newState == State.PAUSED) {
+                val durationMs = playBin.queryDuration(TimeUnit.MILLISECONDS)
+                if (durationMs > 0) {
+                    _state.update { it.copy(durationMs = durationMs) }
+                }
             }
         }
 
         playBin.volume = _state.value.volume
     }
 
-    fun play(filePath: String) {
+    fun play(filePath: String, startPositionMs: Long = 0L, startDurationMs: Long = 0L) {
         val file = File(filePath)
         if (!file.exists()) {
             MukkLogger.error("AudioPlayer", "File not found: $filePath")
@@ -67,13 +69,17 @@ class AudioPlayer {
             it.copy(
                 status = Status.PLAYING,
                 currentTrackPath = filePath,
-                positionMs = 0L
+                positionMs = startPositionMs,
+                durationMs = if (startDurationMs > 0L) startDurationMs else it.durationMs
             )
+        }
+        if (startPositionMs > 0L) {
+            playBin.seek(startPositionMs, TimeUnit.MILLISECONDS)
         }
         startPositionPolling()
     }
 
-    fun playPaused(filePath: String, positionMs: Long) {
+    fun playPaused(filePath: String, positionMs: Long, durationMs: Long = 0L) {
         val file = File(filePath)
         if (!file.exists()) {
             MukkLogger.error("AudioPlayer", "File not found: $filePath")
@@ -86,7 +92,8 @@ class AudioPlayer {
             it.copy(
                 status = Status.PAUSED,
                 currentTrackPath = filePath,
-                positionMs = positionMs
+                positionMs = positionMs,
+                durationMs = if (durationMs > 0L) durationMs else it.durationMs
             )
         }
         scope.launch {

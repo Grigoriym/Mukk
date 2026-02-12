@@ -1,8 +1,6 @@
 package com.grappim.mukk.ui
 
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -34,6 +32,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.grappim.mukk.data.FolderTreeState
+import com.grappim.mukk.ui.components.instantClickable
 import com.grappim.mukk.data.ScanProgress
 import java.io.File
 
@@ -179,7 +178,6 @@ private fun HeaderRow(
     }
 }
 
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun FolderRow(
     item: TreeItem,
@@ -200,7 +198,7 @@ private fun FolderRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .combinedClickable(
+            .instantClickable(
                 onClick = { onSelect(item.path) },
                 onDoubleClick = { onToggleExpand(item.path) }
             )

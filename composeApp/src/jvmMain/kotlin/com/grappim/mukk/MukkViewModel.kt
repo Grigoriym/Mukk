@@ -310,8 +310,7 @@ class MukkViewModel(
         preferencesManager.audioDevice = deviceName
 
         if (wasPlaying && currentPath != null) {
-            audioPlayer.play(currentPath)
-            audioPlayer.seekTo(currentPosition)
+            audioPlayer.play(currentPath, currentPosition)
         }
     }
 
@@ -370,6 +369,7 @@ class MukkViewModel(
     private fun clearPlayingTrack() {
         preferencesManager.playingTrack = ""
         preferencesManager.playbackPositionMs = 0L
+        preferencesManager.playbackDurationMs = 0L
         preferencesManager.playbackWasPlaying = false
     }
 
@@ -386,14 +386,14 @@ class MukkViewModel(
         loadNowPlayingExtras(path)
 
         val savedPosition = preferencesManager.playbackPositionMs
+        val savedDuration = preferencesManager.playbackDurationMs
         val resumeMode = _settingsState.value.resumeMode
         val wasPlaying = preferencesManager.playbackWasPlaying
 
         if (resumeMode == ResumeMode.PLAYING && wasPlaying) {
-            audioPlayer.play(path)
-            if (savedPosition > 0L) audioPlayer.seekTo(savedPosition)
+            audioPlayer.play(path, savedPosition, savedDuration)
         } else if (savedPosition > 0L) {
-            audioPlayer.playPaused(path, savedPosition)
+            audioPlayer.playPaused(path, savedPosition, savedDuration)
         } else {
             audioPlayer.setCurrentTrackPath(path)
         }
@@ -583,6 +583,7 @@ class MukkViewModel(
     private fun loadTracks() {
         viewModelScope.launch {
             _tracks.value = trackRepository.getAllTracks()
+            updateSettingsLibraryInfo()
         }
     }
 

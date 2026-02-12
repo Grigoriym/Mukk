@@ -3,7 +3,7 @@
 package com.grappim.mukk.ui
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.combinedClickable
+import com.grappim.mukk.ui.components.instantClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -269,7 +269,7 @@ private fun TrackRow(
         PointerAwareRow(
             modifier = Modifier
                 .background(bgColor)
-                .combinedClickable(
+                .instantClickable(
                     onClick = onClick,
                     onDoubleClick = onDoubleClick
                 ).padding(horizontal = 16.dp, vertical = 10.dp),

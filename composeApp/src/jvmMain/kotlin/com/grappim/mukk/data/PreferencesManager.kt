@@ -108,6 +108,10 @@ class PreferencesManager {
         get() = getLong("playback.positionMs", 0L)
         set(value) = set("playback.positionMs", value)
 
+    var playbackDurationMs: Long
+        get() = getLong("playback.durationMs", 0L)
+        set(value) = set("playback.durationMs", value)
+
     var playbackWasPlaying: Boolean
         get() = getBoolean("playback.wasPlaying", false)
         set(value) = set("playback.wasPlaying", value)

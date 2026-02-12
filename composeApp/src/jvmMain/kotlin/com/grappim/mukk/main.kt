@@ -61,6 +61,7 @@ fun main() {
                 val playbackState = audioPlayer.state.value
                 if (playbackState.currentTrackPath != null) {
                     preferencesManager.playbackPositionMs = playbackState.positionMs
+                    preferencesManager.playbackDurationMs = playbackState.durationMs
                     preferencesManager.playbackWasPlaying = playbackState.status == Status.PLAYING
                 }
                 fileSystemWatcher.stop()
