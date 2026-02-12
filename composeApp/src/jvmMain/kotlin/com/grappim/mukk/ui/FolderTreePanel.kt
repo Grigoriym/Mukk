@@ -34,6 +34,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.grappim.mukk.data.FolderTreeState
+import com.grappim.mukk.data.ScanProgress
 import java.io.File
 
 private data class TreeItem(
@@ -50,7 +51,7 @@ private data class TreeItem(
 fun FolderTreePanel(
     folderTreeState: FolderTreeState,
     playingFolderPath: String?,
-    isScanning: Boolean,
+    scanProgress: ScanProgress,
     onToggleExpand: (String) -> Unit,
     onSelectFolder: (String) -> Unit,
     onOpenFolderClick: () -> Unit,
@@ -73,11 +74,25 @@ fun FolderTreePanel(
             showRescan = rootPath != null
         )
 
-        if (isScanning) {
-            LinearProgressIndicator(
-                modifier = Modifier.fillMaxWidth(),
-                color = MaterialTheme.colorScheme.primary
-            )
+        if (scanProgress.isScanning) {
+            if (scanProgress.total > 0) {
+                LinearProgressIndicator(
+                    progress = { scanProgress.scanned.toFloat() / scanProgress.total },
+                    modifier = Modifier.fillMaxWidth(),
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Text(
+                    text = "Scanning ${scanProgress.scanned} / ${scanProgress.total}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp)
+                )
+            } else {
+                LinearProgressIndicator(
+                    modifier = Modifier.fillMaxWidth(),
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
         }
 
         if (rootPath == null) {

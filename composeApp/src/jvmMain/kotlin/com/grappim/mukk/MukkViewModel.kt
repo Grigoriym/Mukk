@@ -1,18 +1,10 @@
 package com.grappim.mukk
 
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.toComposeImageBitmap
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.grappim.mukk.data.ColumnConfig
-import com.grappim.mukk.data.DEFAULT_COLUMN_CONFIG
-import com.grappim.mukk.data.FileEntry
-import com.grappim.mukk.data.FolderTreeState
-import com.grappim.mukk.data.MediaTrackData
-import com.grappim.mukk.data.MukkUiState
-import com.grappim.mukk.data.PreferencesManager
-import com.grappim.mukk.data.RepeatMode
-import com.grappim.mukk.data.SettingsState
-import com.grappim.mukk.data.TrackListColumn
-import com.grappim.mukk.data.TrackRepository
+import com.grappim.mukk.data.*
 import com.grappim.mukk.player.AudioPlayer
 import com.grappim.mukk.player.PlaybackState
 import com.grappim.mukk.player.Status
@@ -23,13 +15,8 @@ import com.grappim.mukk.scanner.MetadataReader
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.io.File
 
@@ -48,13 +35,19 @@ class MukkViewModel(
     private val _selectedTrackPath = MutableStateFlow<String?>(null)
     private val _currentAlbumArt = MutableStateFlow<ByteArray?>(null)
     private val _currentLyrics = MutableStateFlow<String?>(null)
-    private val _isScanning = MutableStateFlow(false)
+    private val _scanProgress = MutableStateFlow(ScanProgress())
     private val _columnConfig = MutableStateFlow(DEFAULT_COLUMN_CONFIG)
     private val _settingsState = MutableStateFlow(SettingsState())
 
     val uiState: StateFlow<MukkUiState> = combine(
-        combine(_folderTreeState, _selectedFolderEntries, _selectedTrackPath, _isScanning, _columnConfig) { fts, sfe, stp, scan, cc ->
-            PrimaryState(fts, sfe, stp, scan, cc)
+        combine(
+            _folderTreeState,
+            _selectedFolderEntries,
+            _selectedTrackPath,
+            _scanProgress,
+            _columnConfig
+        ) { fts, sfe, stp, sp, cc ->
+            PrimaryState(fts, sfe, stp, sp, cc)
         },
         combine(audioPlayer.state, _tracks, _currentAlbumArt, _currentLyrics) { ps, tracks, art, lyrics ->
             PlaybackBundle(ps, tracks, art, lyrics)
@@ -67,12 +60,12 @@ class MukkViewModel(
             folderTreeState = primary.folderTreeState,
             selectedFolderEntries = primary.selectedFolderEntries,
             selectedTrackPath = primary.selectedTrackPath,
-            isScanning = primary.isScanning,
+            scanProgress = primary.scanProgress,
             columnConfig = primary.columnConfig,
             playbackState = playback.playbackState,
             currentTrack = currentTrack,
             playingFolderPath = playingFolderPath,
-            currentAlbumArt = playback.albumArt,
+            currentAlbumArt = playback.albumArt?.toImageBitmap(),
             currentLyrics = playback.lyrics,
             settingsState = settings
         )
@@ -89,17 +82,28 @@ class MukkViewModel(
 
         loadTracks()
         restoreFolderTreeState()
-        restorePlayingTrack()
         restoreColumnConfig()
         restoreSettings()
+        restorePlayingTrack()
         loadAudioDevices()
+    }
+
+    private fun ByteArray.toImageBitmap(): ImageBitmap? {
+        return try {
+            org.jetbrains.skia.Image.makeFromEncoded(this).toComposeImageBitmap()
+        } catch (e: Exception) {
+            MukkLogger.warn("NowPlayingPanel", "Failed to decode album art image", e)
+            null
+        }
     }
 
     fun scanDirectory(path: String) {
         viewModelScope.launch {
-            _isScanning.value = true
+            _scanProgress.value = ScanProgress(isScanning = true)
             try {
-                fileScanner.scan(File(path))
+                fileScanner.scan(File(path)) { scanned, total ->
+                    _scanProgress.value = ScanProgress(true, scanned, total)
+                }
                 loadTracksSync()
                 _folderTreeState.value = FolderTreeState(
                     rootPath = path,
@@ -111,7 +115,7 @@ class MukkViewModel(
                 startWatching(path)
                 updateSettingsLibraryInfo()
             } finally {
-                _isScanning.value = false
+                _scanProgress.value = ScanProgress()
             }
         }
     }
@@ -119,16 +123,18 @@ class MukkViewModel(
     fun rescan() {
         val rootPath = _folderTreeState.value.rootPath ?: return
         viewModelScope.launch {
-            _isScanning.value = true
+            _scanProgress.value = ScanProgress(isScanning = true)
             try {
-                fileScanner.scan(File(rootPath))
+                fileScanner.scan(File(rootPath)) { scanned, total ->
+                    _scanProgress.value = ScanProgress(true, scanned, total)
+                }
                 loadTracksSync()
                 val selectedPath = _folderTreeState.value.selectedPath
                 if (selectedPath != null) {
                     loadSelectedFolderEntries(selectedPath)
                 }
             } finally {
-                _isScanning.value = false
+                _scanProgress.value = ScanProgress()
             }
         }
     }
@@ -254,10 +260,13 @@ class MukkViewModel(
                 if (entries.size <= 1) 0
                 else {
                     var rand: Int
-                    do { rand = entries.indices.random() } while (rand == currentIdx)
+                    do {
+                        rand = entries.indices.random()
+                    } while (rand == currentIdx)
                     rand
                 }
             }
+
             currentIdx < 0 -> 0
             currentIdx + 1 >= entries.size -> {
                 if (settings.repeatMode == RepeatMode.ALL) 0
@@ -266,6 +275,7 @@ class MukkViewModel(
                     return
                 }
             }
+
             else -> currentIdx + 1
         }
 
@@ -299,6 +309,11 @@ class MukkViewModel(
     fun toggleShuffle() {
         _settingsState.update { it.copy(shuffleEnabled = !it.shuffleEnabled) }
         preferencesManager.set("playback.shuffle", _settingsState.value.shuffleEnabled.toString())
+    }
+
+    fun setResumeMode(mode: ResumeMode) {
+        _settingsState.update { it.copy(resumeMode = mode) }
+        preferencesManager.set("playback.resumeMode", mode.name)
     }
 
     fun setAudioDevice(deviceName: String) {
@@ -335,7 +350,8 @@ class MukkViewModel(
             it.copy(
                 repeatMode = RepeatMode.OFF,
                 shuffleEnabled = false,
-                selectedAudioDevice = "auto"
+                selectedAudioDevice = "auto",
+                resumeMode = ResumeMode.PAUSED
             )
         }
         audioPlayer.setAudioDevice("auto")
@@ -381,6 +397,8 @@ class MukkViewModel(
 
     private fun clearPlayingTrack() {
         preferencesManager.set("playingTrack", "")
+        preferencesManager.set("playback.positionMs", 0L)
+        preferencesManager.set("playback.wasPlaying", "false")
     }
 
     private fun restorePlayingTrack() {
@@ -388,13 +406,25 @@ class MukkViewModel(
             ?: return
         if (!File(path).exists()) return
 
-        audioPlayer.setCurrentTrackPath(path)
         _selectedTrackPath.value = path
 
         val entries = _selectedFolderEntries.value
         currentTrackIndex = entries.indexOfFirst { it.file.absolutePath == path }
 
         loadNowPlayingExtras(path)
+
+        val savedPosition = preferencesManager.getLong("playback.positionMs", 0L)
+        val resumeMode = _settingsState.value.resumeMode
+        val wasPlaying = preferencesManager.getBoolean("playback.wasPlaying", false)
+
+        if (resumeMode == ResumeMode.PLAYING && wasPlaying) {
+            audioPlayer.play(path)
+            if (savedPosition > 0L) audioPlayer.seekTo(savedPosition)
+        } else if (savedPosition > 0L) {
+            audioPlayer.playPaused(path, savedPosition)
+        } else {
+            audioPlayer.setCurrentTrackPath(path)
+        }
     }
 
     private fun saveFolderTreeState() {
@@ -438,12 +468,19 @@ class MukkViewModel(
         }
         val shuffle = preferencesManager.getBoolean("playback.shuffle", false)
         val device = preferencesManager.getString("audio.device", "auto")
+        val resumeMode = try {
+            ResumeMode.valueOf(preferencesManager.getString("playback.resumeMode", "PAUSED"))
+        } catch (e: IllegalArgumentException) {
+            MukkLogger.warn("MukkViewModel", "Invalid saved resume mode, defaulting to PAUSED", e)
+            ResumeMode.PAUSED
+        }
 
         _settingsState.update {
             it.copy(
                 repeatMode = repeatMode,
                 shuffleEnabled = shuffle,
-                selectedAudioDevice = device
+                selectedAudioDevice = device,
+                resumeMode = resumeMode
             )
         }
 
@@ -564,7 +601,8 @@ class MukkViewModel(
                 val deletedPath = event.directoryPath
                 val current = _folderTreeState.value
                 val newExpanded = current.expandedPaths.filter { !it.startsWith(deletedPath) }.toSet()
-                val newSelected = if (current.selectedPath?.startsWith(deletedPath) == true) null else current.selectedPath
+                val newSelected =
+                    if (current.selectedPath?.startsWith(deletedPath) == true) null else current.selectedPath
                 _folderTreeState.value = current.copy(
                     expandedPaths = newExpanded,
                     selectedPath = newSelected,
@@ -597,7 +635,7 @@ class MukkViewModel(
         val folderTreeState: FolderTreeState,
         val selectedFolderEntries: ImmutableList<FileEntry>,
         val selectedTrackPath: String?,
-        val isScanning: Boolean,
+        val scanProgress: ScanProgress,
         val columnConfig: ColumnConfig
     )
 

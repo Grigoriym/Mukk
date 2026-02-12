@@ -12,6 +12,7 @@ import androidx.compose.ui.window.rememberWindowState
 import com.grappim.mukk.data.PreferencesManager
 import com.grappim.mukk.di.appModule
 import com.grappim.mukk.player.AudioPlayer
+import com.grappim.mukk.player.Status
 import com.grappim.mukk.scanner.FileSystemWatcher
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.debounce
@@ -57,6 +58,11 @@ fun main() {
             onCloseRequest = {
                 preferencesManager.set("window.width", windowState.size.width.value.toInt())
                 preferencesManager.set("window.height", windowState.size.height.value.toInt())
+                val playbackState = audioPlayer.state.value
+                if (playbackState.currentTrackPath != null) {
+                    preferencesManager.set("playback.positionMs", playbackState.positionMs)
+                    preferencesManager.set("playback.wasPlaying", (playbackState.status == Status.PLAYING).toString())
+                }
                 fileSystemWatcher.stop()
                 audioPlayer.dispose()
                 preferencesManager.dispose()

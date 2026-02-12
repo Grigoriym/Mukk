@@ -10,15 +10,23 @@ class FileScanner(
     private val metadataReader: MetadataReader
 ) {
 
-    suspend fun scan(directory: File): Int = withContext(Dispatchers.IO) {
+    suspend fun scan(
+        directory: File,
+        onProgress: ((scanned: Int, total: Int) -> Unit)? = null
+    ): Int = withContext(Dispatchers.IO) {
         if (!directory.isDirectory) return@withContext 0
 
-        var count = 0
-        directory.walkTopDown()
+        val audioFiles = directory.walkTopDown()
             .filter { it.isFile && it.extension.lowercase() in AUDIO_EXTENSIONS }
-            .forEach { file ->
-                count += scanSingleFile(file)
-            }
+            .toList()
+        val total = audioFiles.size
+        onProgress?.invoke(0, total)
+
+        var count = 0
+        audioFiles.forEachIndexed { index, file ->
+            count += scanSingleFile(file)
+            onProgress?.invoke(index + 1, total)
+        }
         count
     }
 

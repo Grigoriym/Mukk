@@ -9,14 +9,17 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.grappim.mukk.data.RepeatMode
+import com.grappim.mukk.data.ResumeMode
 import com.grappim.mukk.data.SettingsState
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsDialog(
     settingsState: SettingsState,
+    isScanning: Boolean,
     onRepeatModeChange: (RepeatMode) -> Unit,
     onShuffleToggle: () -> Unit,
+    onResumeModeChange: (ResumeMode) -> Unit,
     onAudioDeviceChange: (String) -> Unit,
     onRescanAll: () -> Unit,
     onClearLibrary: () -> Unit,
@@ -42,13 +45,15 @@ fun SettingsDialog(
                 PlaybackSection(
                     settingsState = settingsState,
                     onRepeatModeChange = onRepeatModeChange,
-                    onShuffleToggle = onShuffleToggle
+                    onShuffleToggle = onShuffleToggle,
+                    onResumeModeChange = onResumeModeChange
                 )
 
                 HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
 
                 LibrarySection(
                     settingsState = settingsState,
+                    isScanning = isScanning,
                     onRescanAll = onRescanAll,
                     onClearLibrary = onClearLibrary,
                     onResetPreferences = onResetPreferences
@@ -115,7 +120,8 @@ private fun AudioOutputSection(
 private fun PlaybackSection(
     settingsState: SettingsState,
     onRepeatModeChange: (RepeatMode) -> Unit,
-    onShuffleToggle: () -> Unit
+    onShuffleToggle: () -> Unit,
+    onResumeModeChange: (ResumeMode) -> Unit
 ) {
     Text(
         text = "Playback",
@@ -165,11 +171,38 @@ private fun PlaybackSection(
             onCheckedChange = { onShuffleToggle() }
         )
     }
+
+    Spacer(modifier = Modifier.height(12.dp))
+
+    Text(
+        text = "Resume on startup",
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant
+    )
+    Spacer(modifier = Modifier.height(4.dp))
+
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        ResumeMode.entries.forEach { mode ->
+            FilterChip(
+                selected = settingsState.resumeMode == mode,
+                onClick = { onResumeModeChange(mode) },
+                label = {
+                    Text(
+                        when (mode) {
+                            ResumeMode.PAUSED -> "Paused"
+                            ResumeMode.PLAYING -> "Playing"
+                        }
+                    )
+                }
+            )
+        }
+    }
 }
 
 @Composable
 private fun LibrarySection(
     settingsState: SettingsState,
+    isScanning: Boolean,
     onRescanAll: () -> Unit,
     onClearLibrary: () -> Unit,
     onResetPreferences: () -> Unit
@@ -196,7 +229,7 @@ private fun LibrarySection(
     }
 
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        OutlinedButton(onClick = onRescanAll) {
+        OutlinedButton(onClick = onRescanAll, enabled = !isScanning) {
             Text("Rescan All")
         }
         OutlinedButton(

@@ -36,6 +36,9 @@ class PreferencesManager {
     fun getInt(key: String, default: Int): Int =
         properties.getProperty(key)?.toIntOrNull() ?: default
 
+    fun getLong(key: String, default: Long): Long =
+        properties.getProperty(key)?.toLongOrNull() ?: default
+
     fun getBoolean(key: String, default: Boolean): Boolean =
         properties.getProperty(key)?.toBooleanStrictOrNull() ?: default
 

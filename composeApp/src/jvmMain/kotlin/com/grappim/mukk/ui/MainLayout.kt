@@ -66,7 +66,7 @@ fun MainLayout(
             FolderTreePanel(
                 folderTreeState = uiState.folderTreeState,
                 playingFolderPath = uiState.playingFolderPath,
-                isScanning = uiState.isScanning,
+                scanProgress = uiState.scanProgress,
                 onToggleExpand = onToggleExpand,
                 onSelectFolder = onSelectFolder,
                 onOpenFolderClick = onOpenFolderClick,

@@ -166,13 +166,9 @@ The app currently consumes ~400 MB in the system resource monitor. Investigate w
 
 ### 7. Do formatTime, formatFileSize in viewmodel
 
-### 8. overhaul loading while adding/scanning new files, by showing scanned/total_number_of_files
-
 ### 10. Refactor scanSingleFile which returns either 0 or 1, which is cryptic
 
 ### 11. PlaybackBundle has val albumArt: ByteArray; IDE says that with 'Array' type in a 'data' class: it is recommended to override 'equals()' and 'hashCode()' 
-
-### 12. On reopening the app, the song that was played is not saved, i.e. the timing, so on restart I need to start the song again, we can make it to be controlled either playing right ahead, or just being in a paused state
 
 ### 14. modularisation
 

@@ -2,6 +2,8 @@ package com.grappim.mukk.data
 
 enum class RepeatMode { OFF, ONE, ALL }
 
+enum class ResumeMode { PAUSED, PLAYING }
+
 data class AudioDeviceInfo(
     val name: String,
     val displayName: String
@@ -13,5 +15,6 @@ data class SettingsState(
     val availableAudioDevices: List<AudioDeviceInfo> = emptyList(),
     val selectedAudioDevice: String = "auto",
     val libraryPath: String? = null,
-    val trackCount: Int = 0
+    val trackCount: Int = 0,
+    val resumeMode: ResumeMode = ResumeMode.PAUSED
 )

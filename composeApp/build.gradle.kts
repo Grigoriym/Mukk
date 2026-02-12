@@ -49,7 +49,7 @@ compose.desktop {
         mainClass = "com.grappim.mukk.MainKt"
 
         nativeDistributions {
-            targetFormats(TargetFormat.Deb, TargetFormat.AppImage)
+            targetFormats(TargetFormat.Deb, TargetFormat.Dmg, TargetFormat.Msi)
             packageName = "mukk"
             packageVersion = "1.0.0"
             description = "Music player for Linux"

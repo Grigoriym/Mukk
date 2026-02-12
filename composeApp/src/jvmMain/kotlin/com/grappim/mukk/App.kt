@@ -107,8 +107,10 @@ fun App() {
             if (showSettingsDialog) {
                 SettingsDialog(
                     settingsState = uiState.settingsState,
+                    isScanning = uiState.scanProgress.isScanning,
                     onRepeatModeChange = { viewModel.setRepeatMode(it) },
                     onShuffleToggle = { viewModel.toggleShuffle() },
+                    onResumeModeChange = { viewModel.setResumeMode(it) },
                     onAudioDeviceChange = { viewModel.setAudioDevice(it) },
                     onRescanAll = { viewModel.rescan() },
                     onClearLibrary = { viewModel.clearLibrary() },

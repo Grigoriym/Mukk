@@ -73,6 +73,29 @@ class AudioPlayer {
         startPositionPolling()
     }
 
+    fun playPaused(filePath: String, positionMs: Long) {
+        val file = File(filePath)
+        if (!file.exists()) {
+            MukkLogger.error("AudioPlayer", "File not found: $filePath")
+            return
+        }
+        playBin.stop()
+        playBin.setURI(file.toURI())
+        playBin.pause()
+        _state.update {
+            it.copy(
+                status = Status.PAUSED,
+                currentTrackPath = filePath,
+                positionMs = positionMs
+            )
+        }
+        scope.launch {
+            delay(100)
+            playBin.seek(positionMs, TimeUnit.MILLISECONDS)
+            _state.update { it.copy(positionMs = positionMs) }
+        }
+    }
+
     fun pause() {
         playBin.pause()
         _state.update { it.copy(status = Status.PAUSED) }

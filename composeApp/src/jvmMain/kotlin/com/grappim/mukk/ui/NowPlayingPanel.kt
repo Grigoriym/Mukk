@@ -36,7 +36,7 @@ import com.grappim.mukk.data.MediaTrackData
 @Composable
 fun NowPlayingPanel(
     currentTrack: MediaTrackData?,
-    albumArt: ByteArray?,
+    albumArt: ImageBitmap?,
     lyrics: String?,
     modifier: Modifier = Modifier
 ) {
@@ -58,11 +58,6 @@ fun NowPlayingPanel(
                 )
             }
         } else {
-            // Album art
-            val imageBitmap = remember(albumArt) {
-                albumArt?.toImageBitmap()
-            }
-
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -71,9 +66,9 @@ fun NowPlayingPanel(
                     .background(MaterialTheme.colorScheme.surfaceVariant),
                 contentAlignment = Alignment.Center
             ) {
-                if (imageBitmap != null) {
+                if (albumArt != null) {
                     Image(
-                        bitmap = imageBitmap,
+                        bitmap = albumArt,
                         contentDescription = "Album art",
                         modifier = Modifier.fillMaxSize(),
                         contentScale = ContentScale.Crop
@@ -167,14 +162,5 @@ fun NowPlayingPanel(
                 }
             }
         }
-    }
-}
-
-private fun ByteArray.toImageBitmap(): ImageBitmap? {
-    return try {
-        org.jetbrains.skia.Image.makeFromEncoded(this).toComposeImageBitmap()
-    } catch (e: Exception) {
-        MukkLogger.warn("NowPlayingPanel", "Failed to decode album art image", e)
-        null
     }
 }
