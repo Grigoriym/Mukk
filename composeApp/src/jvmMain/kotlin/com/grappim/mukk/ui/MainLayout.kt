@@ -45,14 +45,10 @@ fun MainLayout(
     onVolumeChange: (Double) -> Unit
 ) {
     var leftPanelWidth by remember {
-        mutableStateOf(
-            preferencesManager.getInt("panel.leftWidth", DEFAULT_LEFT_WIDTH.value.toInt()).dp
-        )
+        mutableStateOf(preferencesManager.panelLeftWidth.dp)
     }
     var rightPanelWidth by remember {
-        mutableStateOf(
-            preferencesManager.getInt("panel.rightWidth", DEFAULT_RIGHT_WIDTH.value.toInt()).dp
-        )
+        mutableStateOf(preferencesManager.panelRightWidth.dp)
     }
 
     val density = LocalDensity.current
@@ -82,7 +78,7 @@ fun MainLayout(
                     leftPanelWidth = (leftPanelWidth + deltaDp).coerceIn(MIN_PANEL_WIDTH, MAX_PANEL_WIDTH)
                 },
                 onDragEnd = {
-                    preferencesManager.set("panel.leftWidth", leftPanelWidth.value.toInt())
+                    preferencesManager.panelLeftWidth = leftPanelWidth.value.toInt()
                 }
             )
 
@@ -103,7 +99,7 @@ fun MainLayout(
                     rightPanelWidth = (rightPanelWidth - deltaDp).coerceIn(MIN_PANEL_WIDTH, MAX_PANEL_WIDTH)
                 },
                 onDragEnd = {
-                    preferencesManager.set("panel.rightWidth", rightPanelWidth.value.toInt())
+                    preferencesManager.panelRightWidth = rightPanelWidth.value.toInt()
                 }
             )
 

@@ -77,7 +77,7 @@ class MukkViewModel(
     init {
         audioPlayer.onTrackFinished = { nextTrack() }
 
-        val savedVolume = preferencesManager.getDouble("volume", 0.8)
+        val savedVolume = preferencesManager.volume
         audioPlayer.setVolume(savedVolume)
 
         loadTracks()
@@ -216,7 +216,7 @@ class MukkViewModel(
 
     fun setVolume(volume: Double) {
         audioPlayer.setVolume(volume)
-        preferencesManager.set("volume", volume)
+        preferencesManager.volume = volume
     }
 
     fun nextTrack() {
@@ -285,17 +285,17 @@ class MukkViewModel(
 
     fun setRepeatMode(mode: RepeatMode) {
         _settingsState.update { it.copy(repeatMode = mode) }
-        preferencesManager.set("playback.repeatMode", mode.name)
+        preferencesManager.repeatMode = mode
     }
 
     fun toggleShuffle() {
         _settingsState.update { it.copy(shuffleEnabled = !it.shuffleEnabled) }
-        preferencesManager.set("playback.shuffle", _settingsState.value.shuffleEnabled.toString())
+        preferencesManager.shuffleEnabled = _settingsState.value.shuffleEnabled
     }
 
     fun setResumeMode(mode: ResumeMode) {
         _settingsState.update { it.copy(resumeMode = mode) }
-        preferencesManager.set("playback.resumeMode", mode.name)
+        preferencesManager.resumeMode = mode
     }
 
     fun setAudioDevice(deviceName: String) {
@@ -307,7 +307,7 @@ class MukkViewModel(
 
         audioPlayer.setAudioDevice(deviceName)
         _settingsState.update { it.copy(selectedAudioDevice = deviceName) }
-        preferencesManager.set("audio.device", deviceName)
+        preferencesManager.audioDevice = deviceName
 
         if (wasPlaying && currentPath != null) {
             audioPlayer.play(currentPath)
@@ -353,38 +353,28 @@ class MukkViewModel(
     }
 
     private fun saveColumnConfig() {
-        val serialized = _columnConfig.value.visibleColumns.joinToString("|") { it.name }
-        preferencesManager.set("trackList.columns", serialized)
+        preferencesManager.trackListColumns = _columnConfig.value.visibleColumns
     }
 
     private fun restoreColumnConfig() {
-        val saved = preferencesManager.getString("trackList.columns", "").takeIf { it.isNotEmpty() }
-            ?: return
-        val columns = saved.split("|").mapNotNull { name ->
-            try {
-                TrackListColumn.valueOf(name)
-            } catch (e: IllegalArgumentException) {
-                MukkLogger.warn("MukkViewModel", "Unknown column name in saved config: $name", e)
-                null
-            }
-        }
+        val columns = preferencesManager.trackListColumns
         if (columns.isNotEmpty()) {
             _columnConfig.value = ColumnConfig(columns.toPersistentList())
         }
     }
 
     private fun savePlayingTrack(filePath: String) {
-        preferencesManager.set("playingTrack", filePath)
+        preferencesManager.playingTrack = filePath
     }
 
     private fun clearPlayingTrack() {
-        preferencesManager.set("playingTrack", "")
-        preferencesManager.set("playback.positionMs", 0L)
-        preferencesManager.set("playback.wasPlaying", "false")
+        preferencesManager.playingTrack = ""
+        preferencesManager.playbackPositionMs = 0L
+        preferencesManager.playbackWasPlaying = false
     }
 
     private fun restorePlayingTrack() {
-        val path = preferencesManager.getString("playingTrack", "").takeIf { it.isNotEmpty() }
+        val path = preferencesManager.playingTrack.takeIf { it.isNotEmpty() }
             ?: return
         if (!File(path).exists()) return
 
@@ -395,9 +385,9 @@ class MukkViewModel(
 
         loadNowPlayingExtras(path)
 
-        val savedPosition = preferencesManager.getLong("playback.positionMs", 0L)
+        val savedPosition = preferencesManager.playbackPositionMs
         val resumeMode = _settingsState.value.resumeMode
-        val wasPlaying = preferencesManager.getBoolean("playback.wasPlaying", false)
+        val wasPlaying = preferencesManager.playbackWasPlaying
 
         if (resumeMode == ResumeMode.PLAYING && wasPlaying) {
             audioPlayer.play(path)
@@ -411,21 +401,20 @@ class MukkViewModel(
 
     private fun saveFolderTreeState() {
         val state = _folderTreeState.value
-        preferencesManager.set("folderTree.rootPath", state.rootPath ?: "")
-        preferencesManager.set("folderTree.expandedPaths", state.expandedPaths.joinToString("|"))
-        preferencesManager.set("folderTree.selectedPath", state.selectedPath ?: "")
+        preferencesManager.folderTreeRootPath = state.rootPath ?: ""
+        preferencesManager.folderTreeExpandedPaths = state.expandedPaths
+        preferencesManager.folderTreeSelectedPath = state.selectedPath ?: ""
     }
 
     private fun restoreFolderTreeState() {
-        val rootPath = preferencesManager.getString("folderTree.rootPath", "").takeIf { it.isNotEmpty() }
+        val rootPath = preferencesManager.folderTreeRootPath.takeIf { it.isNotEmpty() }
             ?: return
         if (!File(rootPath).isDirectory) return
 
-        val expandedPaths = preferencesManager.getString("folderTree.expandedPaths", "")
-            .split("|")
-            .filter { it.isNotEmpty() && File(it).isDirectory }
+        val expandedPaths = preferencesManager.folderTreeExpandedPaths
+            .filter { File(it).isDirectory }
             .toSet()
-        val selectedPath = preferencesManager.getString("folderTree.selectedPath", "").takeIf { it.isNotEmpty() }
+        val selectedPath = preferencesManager.folderTreeSelectedPath.takeIf { it.isNotEmpty() }
 
         _folderTreeState.value = FolderTreeState(
             rootPath = rootPath,
@@ -442,20 +431,10 @@ class MukkViewModel(
     }
 
     private fun restoreSettings() {
-        val repeatMode = try {
-            RepeatMode.valueOf(preferencesManager.getString("playback.repeatMode", "OFF"))
-        } catch (e: IllegalArgumentException) {
-            MukkLogger.warn("MukkViewModel", "Invalid saved repeat mode, defaulting to OFF", e)
-            RepeatMode.OFF
-        }
-        val shuffle = preferencesManager.getBoolean("playback.shuffle", false)
-        val device = preferencesManager.getString("audio.device", "auto")
-        val resumeMode = try {
-            ResumeMode.valueOf(preferencesManager.getString("playback.resumeMode", "PAUSED"))
-        } catch (e: IllegalArgumentException) {
-            MukkLogger.warn("MukkViewModel", "Invalid saved resume mode, defaulting to PAUSED", e)
-            ResumeMode.PAUSED
-        }
+        val repeatMode = preferencesManager.repeatMode
+        val shuffle = preferencesManager.shuffleEnabled
+        val device = preferencesManager.audioDevice
+        val resumeMode = preferencesManager.resumeMode
 
         _settingsState.update {
             it.copy(

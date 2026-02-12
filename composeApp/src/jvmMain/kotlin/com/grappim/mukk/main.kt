@@ -32,8 +32,8 @@ fun main() {
     val audioPlayer = koin.get<AudioPlayer>()
     val fileSystemWatcher = koin.get<FileSystemWatcher>()
 
-    val savedWidth = preferencesManager.getInt("window.width", 1024)
-    val savedHeight = preferencesManager.getInt("window.height", 700)
+    val savedWidth = preferencesManager.windowWidth
+    val savedHeight = preferencesManager.windowHeight
 
     application {
         val windowState = rememberWindowState(width = savedWidth.dp, height = savedHeight.dp)
@@ -42,8 +42,8 @@ fun main() {
             snapshotFlow { windowState.size }
                 .debounce(500)
                 .onEach { size ->
-                    preferencesManager.set("window.width", size.width.value.toInt())
-                    preferencesManager.set("window.height", size.height.value.toInt())
+                    preferencesManager.windowWidth = size.width.value.toInt()
+                    preferencesManager.windowHeight = size.height.value.toInt()
                 }
                 .launchIn(this)
         }
@@ -56,12 +56,12 @@ fun main() {
         Window(
             icon = appIcon,
             onCloseRequest = {
-                preferencesManager.set("window.width", windowState.size.width.value.toInt())
-                preferencesManager.set("window.height", windowState.size.height.value.toInt())
+                preferencesManager.windowWidth = windowState.size.width.value.toInt()
+                preferencesManager.windowHeight = windowState.size.height.value.toInt()
                 val playbackState = audioPlayer.state.value
                 if (playbackState.currentTrackPath != null) {
-                    preferencesManager.set("playback.positionMs", playbackState.positionMs)
-                    preferencesManager.set("playback.wasPlaying", (playbackState.status == Status.PLAYING).toString())
+                    preferencesManager.playbackPositionMs = playbackState.positionMs
+                    preferencesManager.playbackWasPlaying = playbackState.status == Status.PLAYING
                 }
                 fileSystemWatcher.stop()
                 audioPlayer.dispose()

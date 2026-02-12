@@ -177,8 +177,6 @@ The app currently consumes ~400 MB in the system resource monitor. Investigate w
 
 ### 18. noticed the track total length is 0 for some tracks/album, noticed only in sir lord baltimore - all albums
 
-### 19. Move all the keys inside PreferencesManager and all getters/setters for each key should be moved inside PreferencesManager
-
 ## Behavioral Guidelines
 
 **Tradeoff:** These guidelines bias toward caution over speed. For trivial tasks, use judgment.
