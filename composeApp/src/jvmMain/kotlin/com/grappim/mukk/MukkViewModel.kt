@@ -1,7 +1,6 @@
 package com.grappim.mukk
 
 import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.graphics.toComposeImageBitmap
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.grappim.mukk.data.*
@@ -15,6 +14,7 @@ import com.grappim.mukk.scanner.MetadataReader
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
+import kotlinx.collections.immutable.toPersistentList
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -33,7 +33,7 @@ class MukkViewModel(
     private val _folderTreeState = MutableStateFlow(FolderTreeState())
     private val _selectedFolderEntries = MutableStateFlow<ImmutableList<FileEntry>>(persistentListOf())
     private val _selectedTrackPath = MutableStateFlow<String?>(null)
-    private val _currentAlbumArt = MutableStateFlow<ByteArray?>(null)
+    private val _currentAlbumArt = MutableStateFlow<ImageBitmap?>(null)
     private val _currentLyrics = MutableStateFlow<String?>(null)
     private val _scanProgress = MutableStateFlow(ScanProgress())
     private val _columnConfig = MutableStateFlow(DEFAULT_COLUMN_CONFIG)
@@ -65,7 +65,7 @@ class MukkViewModel(
             playbackState = playback.playbackState,
             currentTrack = currentTrack,
             playingFolderPath = playingFolderPath,
-            currentAlbumArt = playback.albumArt?.toImageBitmap(),
+            currentAlbumArt = playback.albumArt,
             currentLyrics = playback.lyrics,
             settingsState = settings
         )
@@ -86,15 +86,6 @@ class MukkViewModel(
         restoreSettings()
         restorePlayingTrack()
         loadAudioDevices()
-    }
-
-    private fun ByteArray.toImageBitmap(): ImageBitmap? {
-        return try {
-            org.jetbrains.skia.Image.makeFromEncoded(this).toComposeImageBitmap()
-        } catch (e: Exception) {
-            MukkLogger.warn("NowPlayingPanel", "Failed to decode album art image", e)
-            null
-        }
     }
 
     fun scanDirectory(path: String) {
@@ -189,15 +180,6 @@ class MukkViewModel(
         audioPlayer.play(filePath)
         loadNowPlayingExtras(filePath)
         savePlayingTrack(filePath)
-    }
-
-    fun playTrack(track: MediaTrackData) {
-        currentTrackIndex = _selectedFolderEntries.value
-            .indexOfFirst { it.file.absolutePath == track.filePath }
-        _selectedTrackPath.value = track.filePath
-        audioPlayer.play(track.filePath)
-        loadNowPlayingExtras(track.filePath)
-        savePlayingTrack(track.filePath)
     }
 
     fun pause() {
@@ -362,9 +344,9 @@ class MukkViewModel(
         val current = _columnConfig.value.visibleColumns
         if (column in current) {
             if (current.size <= 1) return
-            _columnConfig.value = ColumnConfig(current - column)
+            _columnConfig.value = ColumnConfig(current.remove(column))
         } else {
-            val newList = (current + column).sortedBy { it.ordinal }
+            val newList = (current.add(column)).sortedBy { it.ordinal }.toPersistentList()
             _columnConfig.value = ColumnConfig(newList)
         }
         saveColumnConfig()
@@ -387,7 +369,7 @@ class MukkViewModel(
             }
         }
         if (columns.isNotEmpty()) {
-            _columnConfig.value = ColumnConfig(columns)
+            _columnConfig.value = ColumnConfig(columns.toPersistentList())
         }
     }
 
@@ -642,7 +624,7 @@ class MukkViewModel(
     private data class PlaybackBundle(
         val playbackState: PlaybackState,
         val tracks: List<MediaTrackData>,
-        val albumArt: ByteArray?,
+        val albumArt: ImageBitmap?,
         val lyrics: String?
     )
 

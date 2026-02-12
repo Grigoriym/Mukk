@@ -18,14 +18,18 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import com.grappim.mukk.data.ColumnConfig
 import com.grappim.mukk.data.FileEntry
+import com.grappim.mukk.data.MediaTrackData
 import com.grappim.mukk.data.TrackListColumn
 import com.grappim.mukk.ui.components.TrackContextDropdownMenu
 import com.grappim.mukk.ui.components.formatTime
 import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
+import java.io.File
 
 @Composable
 fun TrackListPanel(
@@ -124,7 +128,6 @@ private fun formatFileSize(bytes: Long): String {
     }
 }
 
-@OptIn(ExperimentalComposeUiApi::class)
 @Composable
 private fun TrackListHeader(
     columnConfig: ColumnConfig,
@@ -296,6 +299,48 @@ private fun TrackRow(
             setShowContextMenu = { newValue ->
                 showContextMenu = newValue
             }
+        )
+    }
+}
+
+@Preview
+@Composable
+private fun TrackListPanelPreview() {
+    MukkTheme {
+        TrackListPanel(
+            entries = persistentListOf(
+                FileEntry(
+                    file = File("name.mp3"),
+                    isDirectory =false,
+                    name = "name",
+                    trackData = MediaTrackData(
+                        id = 1974,
+                        filePath = "efficiantur",
+                        title = "pericula",
+                        artist = "interpretaris",
+                        album = "porttitor",
+                        albumArtist = "natoque",
+                        genre = "mandamus",
+                        trackNumber = 2381,
+                        discNumber = 5847,
+                        year = 2003,
+                        duration = 5641,
+                        fileSize = 2344,
+                        lastModified = 1578,
+                        addedAt = 6999
+                    )
+                )
+            ),
+            currentTrackPath = "",
+            selectedTrackPath = "",
+            columnConfig = ColumnConfig(
+                visibleColumns = persistentListOf(
+                    TrackListColumn.TRACK_NUMBER
+                )
+            ),
+            onToggleColumn = {},
+            onTrackClick = {},
+            onTrackDoubleClick = {}
         )
     }
 }

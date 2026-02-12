@@ -1,5 +1,7 @@
 package com.grappim.mukk.scanner
 
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.toComposeImageBitmap
 import com.grappim.mukk.MukkLogger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -28,10 +30,10 @@ class MetadataReader {
         Logger.getLogger("org.jaudiotagger").level = Level.OFF
     }
 
-    suspend fun readAlbumArt(filePath: String): ByteArray? = withContext(Dispatchers.IO) {
+    suspend fun readAlbumArt(filePath: String): ImageBitmap? = withContext(Dispatchers.IO) {
         try {
             val audioFile = AudioFileIO.read(File(filePath))
-            audioFile.tag?.firstArtwork?.binaryData
+            audioFile.tag?.firstArtwork?.binaryData?.toImageBitmap()
         } catch (e: Exception) {
             MukkLogger.warn("MetadataReader", "Failed to read album art for $filePath", e)
             null
@@ -70,5 +72,12 @@ class MetadataReader {
             MukkLogger.warn("MetadataReader", "Failed to read metadata for ${file.name}", e)
             null
         }
+    }
+
+    private fun ByteArray.toImageBitmap(): ImageBitmap? = try {
+        org.jetbrains.skia.Image.makeFromEncoded(this).toComposeImageBitmap()
+    } catch (e: Exception) {
+        MukkLogger.warn("NowPlayingPanel", "Failed to decode album art image", e)
+        null
     }
 }

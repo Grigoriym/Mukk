@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalMaterial3Api::class)
+
 package com.grappim.mukk.ui
 
 import androidx.compose.foundation.layout.*
@@ -12,7 +14,6 @@ import com.grappim.mukk.data.RepeatMode
 import com.grappim.mukk.data.ResumeMode
 import com.grappim.mukk.data.SettingsState
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsDialog(
     settingsState: SettingsState,
@@ -68,7 +69,6 @@ fun SettingsDialog(
     )
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun AudioOutputSection(
     settingsState: SettingsState,

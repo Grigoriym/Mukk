@@ -156,9 +156,6 @@ ViewModel exposes functions + StateFlows → `App.kt` collects state via `collec
 
 ## Roadmap / TODO
 
-### 4. Add @Preview to composables
-Add `@Preview` annotations to UI composables
-
 ### 5. Investigate and reduce memory usage (~400 MB)
 The app currently consumes ~400 MB in the system resource monitor. Investigate whether this can be reduced. Potential areas to look at: JVM heap settings (default max heap may be oversized — try tuning `-Xmx` in the Compose Desktop config), GStreamer native memory overhead, Compose/Skia rendering buffers, loaded album art kept in memory, Exposed/SQLite connection pool size. Profile with VisualVM or `jcmd` to identify the biggest contributors. Consider whether JVM flags like `-XX:+UseSerialGC` or `-XX:MaxMetaspaceSize` help for a single-user desktop app.
 
@@ -178,7 +175,9 @@ The app currently consumes ~400 MB in the system resource monitor. Investigate w
 
 ### 17. when selecting (clicking) a track in the track list, there is a delay until the track will be highlighted
 
-## 18. noticed the track total length is 0 for some tracks/album, noticed only in sir lord baltimore - all albums
+### 18. noticed the track total length is 0 for some tracks/album, noticed only in sir lord baltimore - all albums
+
+### 19. Move all the keys inside PreferencesManager and all getters/setters for each key should be moved inside PreferencesManager
 
 ## Behavioral Guidelines
 

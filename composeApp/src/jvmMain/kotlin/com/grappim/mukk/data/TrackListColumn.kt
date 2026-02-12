@@ -1,5 +1,8 @@
 package com.grappim.mukk.data
 
+import kotlinx.collections.immutable.PersistentList
+import kotlinx.collections.immutable.toPersistentList
+
 enum class TrackListColumn(
     val label: String,
     val defaultWeight: Float,
@@ -19,9 +22,9 @@ enum class TrackListColumn(
 }
 
 data class ColumnConfig(
-    val visibleColumns: List<TrackListColumn>
+    val visibleColumns: PersistentList<TrackListColumn>
 )
 
 val DEFAULT_COLUMN_CONFIG = ColumnConfig(
-    visibleColumns = TrackListColumn.entries.filter { it.visibleByDefault }
+    visibleColumns = TrackListColumn.entries.filter { it.visibleByDefault }.toPersistentList()
 )
