@@ -15,6 +15,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.grappim.mukk.utils.formatTime
 
 @Composable
 fun SeekBar(
@@ -66,11 +67,4 @@ fun SeekBar(
             modifier = Modifier.width(48.dp)
         )
     }
-}
-
-fun formatTime(ms: Long): String {
-    val totalSeconds = ms / 1000
-    val minutes = totalSeconds / 60
-    val seconds = totalSeconds % 60
-    return "%d:%02d".format(minutes, seconds)
 }

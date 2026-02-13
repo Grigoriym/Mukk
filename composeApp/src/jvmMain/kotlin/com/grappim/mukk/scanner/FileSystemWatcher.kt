@@ -5,6 +5,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
@@ -37,13 +38,14 @@ class FileSystemWatcher {
     private val _events = MutableSharedFlow<FileSystemEvent>(extraBufferCapacity = 64)
     val events: SharedFlow<FileSystemEvent> = _events.asSharedFlow()
 
-    private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private var scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private var watchService: WatchService? = null
     private var watchJob: Job? = null
     private val keyToPath = mutableMapOf<WatchKey, Path>()
 
     fun watch(rootDirectory: File) {
         stop()
+        scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
         val root = rootDirectory.toPath()
         if (!Files.isDirectory(root)) return
@@ -56,7 +58,11 @@ class FileSystemWatcher {
 
             watchJob = scope.launch {
                 while (isActive) {
-                    val key = ws.poll(500, TimeUnit.MILLISECONDS) ?: continue
+                    val key = try {
+                        ws.poll(500, TimeUnit.MILLISECONDS) ?: continue
+                    } catch (_: java.nio.file.ClosedWatchServiceException) {
+                        break
+                    }
                     val dir = keyToPath[key] ?: run {
                         key.cancel()
                         continue
@@ -133,6 +139,7 @@ class FileSystemWatcher {
     fun stop() {
         watchJob?.cancel()
         watchJob = null
+        scope.cancel()
         keyToPath.clear()
         try {
             watchService?.close()

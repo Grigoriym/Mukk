@@ -24,7 +24,7 @@ class FileScanner(
 
         var count = 0
         audioFiles.forEachIndexed { index, file ->
-            count += scanSingleFile(file)
+            if (scanSingleFile(file)) count++
             onProgress?.invoke(index + 1, total)
         }
         count
@@ -37,7 +37,7 @@ class FileScanner(
         val files = directory.listFiles() ?: return@withContext 0
         files.filter { it.isFile && it.extension.lowercase() in AUDIO_EXTENSIONS }
             .forEach { file ->
-                count += scanSingleFile(file)
+                if (scanSingleFile(file)) count++
             }
         count
     }
@@ -46,7 +46,7 @@ class FileScanner(
         return trackRepository.deleteByPath(filePath)
     }
 
-    private suspend fun scanSingleFile(file: File): Int {
+    private suspend fun scanSingleFile(file: File): Boolean {
         val existing = trackRepository.findByPath(file.absolutePath)
 
         if (existing != null) {
@@ -66,9 +66,9 @@ class FileScanner(
                     fileSize = file.length(),
                     lastModified = file.lastModified()
                 )
-                return 1
+                return true
             }
-            return 0
+            return false
         }
 
         val metadata = metadataReader.read(file)
@@ -86,7 +86,7 @@ class FileScanner(
             fileSize = file.length(),
             lastModified = file.lastModified()
         )
-        return if (inserted) 1 else 0
+        return inserted
     }
 
     companion object {

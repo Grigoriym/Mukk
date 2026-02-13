@@ -589,8 +589,7 @@ class MukkViewModel(
 
     override fun onCleared() {
         super.onCleared()
-        fileSystemWatcher.stop()
-        audioPlayer.dispose()
+        // Cleanup is handled by main.kt onCloseRequest
     }
 
     private data class PrimaryState(

@@ -176,22 +176,12 @@ ViewModel exposes functions + StateFlows → `App.kt` collects state via `collec
 - Centralized logging (`MukkLogger`)
 - Tag change detection (re-reads metadata when file modified time is newer)
 
-## Roadmap / Fixes
-
-### 1. noticed the track total length is 0 for some tracks/album, noticed only in sir lord baltimore - all albums, only when I click ina  random place in seek bar it shows the correct time
-
-### 2. when exiting the app you can see "Skia layer is disposed", presumable when we close the app while the music is playing
-
-### 3. Do formatTime, formatFileSize in viewmodel
-
-### 4. Refactor scanSingleFile which returns either 0 or 1, which is cryptic
-
-## Roadmap / Big changes
+## Roadmap
 
 ### 1. Investigate and reduce memory usage (~400 MB)
 The app currently consumes ~400 MB in the system resource monitor. Investigate whether this can be reduced. Potential areas to look at: JVM heap settings (default max heap may be oversized — try tuning `-Xmx` in the Compose Desktop config), GStreamer native memory overhead, Compose/Skia rendering buffers, loaded album art kept in memory, Exposed/SQLite connection pool size. Profile with VisualVM or `jcmd` to identify the biggest contributors. Consider whether JVM flags like `-XX:+UseSerialGC` or `-XX:MaxMetaspaceSize` help for a single-user desktop app.
 
-### 2. modularisation
+### 2. Modularisation
 
 ## Behavioral Guidelines
 

@@ -70,7 +70,7 @@ class AudioPlayer {
                 status = Status.PLAYING,
                 currentTrackPath = filePath,
                 positionMs = startPositionMs,
-                durationMs = if (startDurationMs > 0L) startDurationMs else it.durationMs
+                durationMs = startDurationMs
             )
         }
         if (startPositionMs > 0L) {
@@ -93,7 +93,7 @@ class AudioPlayer {
                 status = Status.PAUSED,
                 currentTrackPath = filePath,
                 positionMs = positionMs,
-                durationMs = if (durationMs > 0L) durationMs else it.durationMs
+                durationMs = durationMs
             )
         }
         scope.launch {
@@ -181,6 +181,7 @@ class AudioPlayer {
 
     fun dispose() {
         stopPositionPolling()
+        scope.cancel()
         playBin.stop()
         playBin.dispose()
     }
@@ -190,7 +191,17 @@ class AudioPlayer {
         positionJob = scope.launch {
             while (isActive) {
                 val pos = playBin.queryPosition(TimeUnit.MILLISECONDS)
-                _state.update { it.copy(positionMs = pos) }
+                val currentDuration = _state.value.durationMs
+                if (currentDuration <= 0L) {
+                    val dur = playBin.queryDuration(TimeUnit.MILLISECONDS)
+                    if (dur > 0) {
+                        _state.update { it.copy(positionMs = pos, durationMs = dur) }
+                    } else {
+                        _state.update { it.copy(positionMs = pos) }
+                    }
+                } else {
+                    _state.update { it.copy(positionMs = pos) }
+                }
                 delay(200)
             }
         }
