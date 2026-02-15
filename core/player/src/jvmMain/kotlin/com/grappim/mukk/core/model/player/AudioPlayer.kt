@@ -13,6 +13,7 @@ import org.freedesktop.gstreamer.Bus
 import org.freedesktop.gstreamer.Gst
 import org.freedesktop.gstreamer.State
 import org.freedesktop.gstreamer.Version
+import org.freedesktop.gstreamer.device.Device
 import org.freedesktop.gstreamer.device.DeviceMonitor
 import org.freedesktop.gstreamer.elements.PlayBin
 import java.io.File
@@ -42,7 +43,13 @@ class AudioPlayer {
         playBin.bus.connect(Bus.ERROR { _, _, message ->
             MukkLogger.error("AudioPlayer", "GStreamer error: $message")
             playBin.stop()
-            _state.update { it.copy(playbackStatus = PlaybackStatus.STOPPED, positionMs = 0L) }
+            _state.update {
+                it.copy(
+                    playbackStatus = PlaybackStatus.STOPPED,
+                    currentTrackPath = null,
+                    positionMs = 0L
+                )
+            }
             stopPositionPolling()
         })
 
@@ -99,6 +106,7 @@ class AudioPlayer {
             )
         }
         scope.launch {
+            // GStreamer needs time to transition to PAUSED before seeking is possible
             delay(100)
             playBin.seek(positionMs, TimeUnit.MILLISECONDS)
             _state.update { it.copy(positionMs = positionMs) }
@@ -134,28 +142,20 @@ class AudioPlayer {
         _state.update { it.copy(volume = clamped) }
     }
 
-    fun setCurrentTrackPath(filePath: String) {
+    /**
+     * Sets the track path in state without loading into GStreamer.
+     * Used to restore the last-played track on startup without auto-playing.
+     */
+    fun setRestoredTrackPath(filePath: String) {
         _state.update { it.copy(currentTrackPath = filePath) }
     }
 
     fun getAvailableAudioDevices(): List<AudioDeviceInfo> {
         val devices = mutableListOf(AudioDeviceInfo("auto", "Automatic (default)"))
-        try {
-            val monitor = DeviceMonitor()
-            monitor.addFilter("Audio/Sink", null)
-            if (monitor.start()) {
-                for (device in monitor.devices) {
-                    devices.add(
-                        AudioDeviceInfo(
-                            name = device.displayName,
-                            displayName = device.displayName
-                        )
-                    )
-                }
-                monitor.stop()
+        withAudioSinkDevices("enumerate audio devices") { monitorDevices ->
+            for (device in monitorDevices) {
+                devices.add(AudioDeviceInfo(name = device.displayName, displayName = device.displayName))
             }
-        } catch (e: Exception) {
-            MukkLogger.error("AudioPlayer", "Failed to enumerate audio devices", e)
         }
         return devices
     }
@@ -165,19 +165,24 @@ class AudioPlayer {
             playBin.set("audio-sink", null)
             return
         }
+        withAudioSinkDevices("set audio device '$deviceName'") { devices ->
+            val device = devices.firstOrNull { it.displayName == deviceName }
+            if (device != null) {
+                playBin.set("audio-sink", device.createElement("audio-sink"))
+            }
+        }
+    }
+
+    private fun withAudioSinkDevices(action: String, block: (List<Device>) -> Unit) {
         try {
             val monitor = DeviceMonitor()
             monitor.addFilter("Audio/Sink", null)
             if (monitor.start()) {
-                val device = monitor.devices.firstOrNull { it.displayName == deviceName }
-                if (device != null) {
-                    val element = device.createElement("audio-sink")
-                    playBin.set("audio-sink", element)
-                }
+                block(monitor.devices)
                 monitor.stop()
             }
         } catch (e: Exception) {
-            MukkLogger.error("AudioPlayer", "Failed to set audio device '$deviceName'", e)
+            MukkLogger.error("AudioPlayer", "Failed to $action", e)
         }
     }
 
@@ -193,17 +198,12 @@ class AudioPlayer {
         positionJob = scope.launch {
             while (isActive) {
                 val pos = playBin.queryPosition(TimeUnit.MILLISECONDS)
-                val currentDuration = _state.value.durationMs
-                if (currentDuration <= 0L) {
-                    val dur = playBin.queryDuration(TimeUnit.MILLISECONDS)
-                    if (dur > 0) {
-                        _state.update { it.copy(positionMs = pos, durationMs = dur) }
-                    } else {
-                        _state.update { it.copy(positionMs = pos) }
-                    }
+                val dur = if (_state.value.durationMs <= 0L) {
+                    playBin.queryDuration(TimeUnit.MILLISECONDS).takeIf { it > 0 }
                 } else {
-                    _state.update { it.copy(positionMs = pos) }
+                    null
                 }
+                _state.update { it.copy(positionMs = pos, durationMs = dur ?: it.durationMs) }
                 delay(200)
             }
         }

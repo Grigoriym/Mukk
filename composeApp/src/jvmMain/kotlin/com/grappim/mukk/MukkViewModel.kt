@@ -395,7 +395,7 @@ class MukkViewModel(
         } else if (savedPosition > 0L) {
             audioPlayer.playPaused(path, savedPosition, savedDuration)
         } else {
-            audioPlayer.setCurrentTrackPath(path)
+            audioPlayer.setRestoredTrackPath(path)
         }
     }
 
