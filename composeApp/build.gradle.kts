@@ -44,6 +44,12 @@ kotlin {
 compose.desktop {
     application {
         mainClass = "com.grappim.mukk.MainKt"
+        jvmArgs += listOf(
+            "-Xmx256m",
+            "-Xms64m",
+            "-XX:+UseSerialGC",
+            "-XX:MaxMetaspaceSize=128m",
+        )
 
         nativeDistributions {
             targetFormats(TargetFormat.Deb, TargetFormat.Dmg, TargetFormat.Msi)
