@@ -51,7 +51,7 @@ compose.desktop {
             targetFormats(TargetFormat.Deb, TargetFormat.Dmg, TargetFormat.Msi)
             packageName = "mukk"
             packageVersion = "1.0.0"
-            description = "Music player for Linux"
+            description = "Music player"
             vendor = "Grappim"
 
             modules("java.sql", "java.naming", "jdk.unsupported")
