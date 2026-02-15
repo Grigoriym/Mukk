@@ -27,6 +27,7 @@ import java.nio.file.WatchEvent
 import java.nio.file.WatchKey
 import java.nio.file.WatchService
 import java.nio.file.attribute.BasicFileAttributes
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 
 sealed class FileSystemEvent {
@@ -44,7 +45,7 @@ class FileSystemWatcher {
     private var scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private var watchService: WatchService? = null
     private var watchJob: Job? = null
-    private val keyToPath = mutableMapOf<WatchKey, Path>()
+    private val keyToPath = ConcurrentHashMap<WatchKey, Path>()
 
     fun watch(rootDirectory: File) {
         stop()
@@ -58,6 +59,7 @@ class FileSystemWatcher {
             watchService = ws
 
             registerRecursive(root, ws)
+            MukkLogger.debug("FileSystemWatcher", "Started watching: $root")
 
             watchJob = scope.launch {
                 while (isActive) {
@@ -66,7 +68,9 @@ class FileSystemWatcher {
                     } catch (_: ClosedWatchServiceException) {
                         break
                     }
-                    val dir = keyToPath[key] ?: run {
+
+                    val dir = keyToPath[key]
+                    if (dir == null) {
                         key.cancel()
                         continue
                     }
@@ -79,52 +83,9 @@ class FileSystemWatcher {
                         val child = dir.resolve((event as WatchEvent<Path>).context())
 
                         when (kind) {
-                            ENTRY_CREATE -> {
-                                if (Files.isDirectory(child)) {
-                                    try {
-                                        registerRecursive(child, ws)
-                                    } catch (e: IOException) {
-                                        MukkLogger.warn("FileSystemWatcher", "inotify limit, skipping watch for $child", e)
-                                    }
-                                    _events.tryEmit(FileSystemEvent.DirectoryCreated(child.toString()))
-                                } else if (isAudioFile(child)) {
-                                    _events.tryEmit(
-                                        FileSystemEvent.AudioFileChanged(
-                                            directory = dir.toString(),
-                                            filePath = child.toString()
-                                        )
-                                    )
-                                }
-                            }
-
-                            ENTRY_MODIFY -> {
-                                if (isAudioFile(child)) {
-                                    _events.tryEmit(
-                                        FileSystemEvent.AudioFileChanged(
-                                            directory = dir.toString(),
-                                            filePath = child.toString()
-                                        )
-                                    )
-                                }
-                            }
-
-                            ENTRY_DELETE -> {
-                                val extension = child.fileName.toString()
-                                    .substringAfterLast('.', "")
-                                    .lowercase()
-                                if (extension in FileScanner.AUDIO_EXTENSIONS) {
-                                    _events.tryEmit(
-                                        FileSystemEvent.AudioFileDeleted(
-                                            directory = dir.toString(),
-                                            filePath = child.toString()
-                                        )
-                                    )
-                                } else {
-                                    _events.tryEmit(
-                                        FileSystemEvent.DirectoryDeleted(child.toString())
-                                    )
-                                }
-                            }
+                            ENTRY_CREATE -> handleCreate(child, dir, ws)
+                            ENTRY_MODIFY -> handleModify(child, dir)
+                            ENTRY_DELETE -> handleDelete(child, dir)
                         }
                     }
 
@@ -150,6 +111,53 @@ class FileSystemWatcher {
             MukkLogger.debug("FileSystemWatcher", "Error closing WatchService: ${e.message}")
         }
         watchService = null
+        MukkLogger.debug("FileSystemWatcher", "Stopped")
+    }
+
+    private fun handleCreate(child: Path, dir: Path, ws: WatchService) {
+        if (Files.isDirectory(child)) {
+            try {
+                registerRecursive(child, ws)
+            } catch (e: IOException) {
+                MukkLogger.warn("FileSystemWatcher", "inotify limit, skipping watch for $child", e)
+            }
+            _events.tryEmit(FileSystemEvent.DirectoryCreated(child.toString()))
+        } else if (isAudioFile(child)) {
+            _events.tryEmit(
+                FileSystemEvent.AudioFileChanged(
+                    directory = dir.toString(),
+                    filePath = child.toString()
+                )
+            )
+        }
+    }
+
+    private fun handleModify(child: Path, dir: Path) {
+        if (isAudioFile(child)) {
+            _events.tryEmit(
+                FileSystemEvent.AudioFileChanged(
+                    directory = dir.toString(),
+                    filePath = child.toString()
+                )
+            )
+        }
+    }
+
+    private fun handleDelete(child: Path, dir: Path) {
+        // Deleted files no longer exist on disk, so we can't check isDirectory().
+        // Use the extension heuristic: if it looks like an audio file, emit AudioFileDeleted.
+        // If it has a known extension of any kind, it's a non-audio file — ignore it.
+        // Otherwise (no extension or unknown), assume it was a directory.
+        if (isAudioFile(child)) {
+            _events.tryEmit(
+                FileSystemEvent.AudioFileDeleted(
+                    directory = dir.toString(),
+                    filePath = child.toString()
+                )
+            )
+        } else if (!hasFileExtension(child)) {
+            _events.tryEmit(FileSystemEvent.DirectoryDeleted(child.toString()))
+        }
     }
 
     private fun registerRecursive(root: Path, ws: WatchService) {
@@ -171,5 +179,11 @@ class FileSystemWatcher {
             .substringAfterLast('.', "")
             .lowercase()
         return extension in FileScanner.AUDIO_EXTENSIONS
+    }
+
+    private fun hasFileExtension(path: Path): Boolean {
+        val name = path.fileName.toString()
+        val dotIndex = name.lastIndexOf('.')
+        return dotIndex > 0 && dotIndex < name.length - 1
     }
 }

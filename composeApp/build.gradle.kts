@@ -43,7 +43,7 @@ kotlin {
 // ./gradlew packageDeb
 compose.desktop {
     application {
-        mainClass = "com.grappim.mukk.MainKt"
+        mainClass = "${libs.versions.app.pkg.get()}.MainKt"
         jvmArgs += listOf(
             "-Xmx256m",
             "-Xms64m",
@@ -53,15 +53,22 @@ compose.desktop {
 
         nativeDistributions {
             targetFormats(TargetFormat.Deb, TargetFormat.Dmg, TargetFormat.Msi)
-            packageName = "mukk"
-            packageVersion = "1.0.0"
-            description = "Music player"
-            vendor = "Grappim"
+            packageName = libs.versions.app.name.get()
+            packageVersion = libs.versions.version.name.get()
+            description = libs.versions.app.description.get()
+            vendor = libs.versions.app.vendor.get()
+            copyright = "Copyright 2025 ${libs.versions.app.vendor.get()}"
 
             modules("java.sql", "java.naming", "jdk.unsupported")
 
             linux {
                 iconFile.set(project.file("../info/art/logo.png"))
+
+                debMaintainer = libs.versions.app.vendor.get()
+                debPackageVersion = libs.versions.version.name.get()
+                appCategory = "Music"
+                menuGroup = libs.versions.app.menugroup.get()
+                shortcut = true
             }
         }
     }

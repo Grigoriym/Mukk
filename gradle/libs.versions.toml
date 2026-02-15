@@ -1,4 +1,12 @@
 [versions]
+version-code = "2"
+version-name = "1.0.1"
+app-pkg = "com.grappim.mukk"
+app-name = "Mukk"
+app-vendor = "grappim"
+app-description = "Music Player"
+app-menugroup = "AudioVideo"
+
 kotlin = "2.3.0"
 kotlinx-coroutines = "1.10.2"
 kotlinx-collections = "0.4.0"
