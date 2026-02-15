@@ -1,6 +1,9 @@
 package com.grappim.mukk.data
 
 import com.grappim.mukk.MukkLogger
+import com.grappim.mukk.core.model.RepeatMode
+import com.grappim.mukk.core.model.ResumeMode
+import com.grappim.mukk.core.model.TrackListColumn
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob

@@ -1,4 +1,4 @@
-package com.grappim.mukk.data
+package com.grappim.mukk.core.model
 
 import kotlinx.collections.immutable.PersistentList
 import kotlinx.collections.immutable.toPersistentList

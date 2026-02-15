@@ -3,10 +3,20 @@ package com.grappim.mukk
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.grappim.mukk.core.model.ColumnConfig
+import com.grappim.mukk.core.model.DEFAULT_COLUMN_CONFIG
+import com.grappim.mukk.core.model.FileEntry
+import com.grappim.mukk.core.model.FolderTreeState
+import com.grappim.mukk.core.model.MediaTrackData
 import com.grappim.mukk.data.*
 import com.grappim.mukk.player.AudioPlayer
-import com.grappim.mukk.player.PlaybackState
-import com.grappim.mukk.player.Status
+import com.grappim.mukk.core.model.PlaybackState
+import com.grappim.mukk.core.model.PlaybackStatus
+import com.grappim.mukk.core.model.RepeatMode
+import com.grappim.mukk.core.model.ResumeMode
+import com.grappim.mukk.core.model.ScanProgress
+import com.grappim.mukk.core.model.SettingsState
+import com.grappim.mukk.core.model.TrackListColumn
 import com.grappim.mukk.scanner.FileScanner
 import com.grappim.mukk.scanner.FileSystemEvent
 import com.grappim.mukk.scanner.FileSystemWatcher
@@ -191,10 +201,10 @@ class MukkViewModel(
     }
 
     fun togglePlayPause() {
-        when (audioPlayer.state.value.status) {
-            Status.PLAYING -> pause()
-            Status.PAUSED -> resume()
-            Status.STOPPED, Status.IDLE -> {
+        when (audioPlayer.state.value.playbackStatus) {
+            PlaybackStatus.PLAYING -> pause()
+            PlaybackStatus.PAUSED -> resume()
+            PlaybackStatus.STOPPED, PlaybackStatus.IDLE -> {
                 val currentPath = audioPlayer.state.value.currentTrackPath
                 if (currentPath != null) {
                     audioPlayer.play(currentPath)
@@ -299,7 +309,7 @@ class MukkViewModel(
     }
 
     fun setAudioDevice(deviceName: String) {
-        val wasPlaying = audioPlayer.state.value.status == Status.PLAYING
+        val wasPlaying = audioPlayer.state.value.playbackStatus == PlaybackStatus.PLAYING
         val currentPath = audioPlayer.state.value.currentTrackPath
         val currentPosition = audioPlayer.state.value.positionMs
 

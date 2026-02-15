@@ -1,7 +1,14 @@
 package com.grappim.mukk.data
 
 import androidx.compose.ui.graphics.ImageBitmap
-import com.grappim.mukk.player.PlaybackState
+import com.grappim.mukk.core.model.ColumnConfig
+import com.grappim.mukk.core.model.DEFAULT_COLUMN_CONFIG
+import com.grappim.mukk.core.model.FileEntry
+import com.grappim.mukk.core.model.FolderTreeState
+import com.grappim.mukk.core.model.MediaTrackData
+import com.grappim.mukk.core.model.PlaybackState
+import com.grappim.mukk.core.model.ScanProgress
+import com.grappim.mukk.core.model.SettingsState
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 

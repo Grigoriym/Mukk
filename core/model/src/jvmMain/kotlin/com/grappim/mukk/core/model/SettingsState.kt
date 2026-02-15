@@ -1,4 +1,4 @@
-package com.grappim.mukk.data
+package com.grappim.mukk.core.model
 
 enum class RepeatMode { OFF, ONE, ALL }
 

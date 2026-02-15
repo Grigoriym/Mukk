@@ -31,9 +31,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.grappim.mukk.data.FolderTreeState
+import com.grappim.mukk.core.model.FolderTreeState
 import com.grappim.mukk.ui.components.instantClickable
-import com.grappim.mukk.data.ScanProgress
+import com.grappim.mukk.core.model.ScanProgress
 import java.io.File
 
 private data class TreeItem(

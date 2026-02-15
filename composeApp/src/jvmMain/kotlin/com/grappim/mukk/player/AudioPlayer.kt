@@ -6,7 +6,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import com.grappim.mukk.MukkLogger
-import com.grappim.mukk.data.AudioDeviceInfo
+import com.grappim.mukk.core.model.PlaybackState
+import com.grappim.mukk.core.model.PlaybackStatus
+import com.grappim.mukk.core.model.AudioDeviceInfo
 import org.freedesktop.gstreamer.Bus
 import org.freedesktop.gstreamer.Gst
 import org.freedesktop.gstreamer.State
@@ -32,7 +34,7 @@ class AudioPlayer {
         playBin = PlayBin("MukkPlayer")
 
         playBin.bus.connect(Bus.EOS { _ ->
-            _state.update { it.copy(status = Status.STOPPED, positionMs = 0L) }
+            _state.update { it.copy(playbackStatus = PlaybackStatus.STOPPED, positionMs = 0L) }
             stopPositionPolling()
             onTrackFinished?.invoke()
         })
@@ -40,7 +42,7 @@ class AudioPlayer {
         playBin.bus.connect(Bus.ERROR { _, _, message ->
             MukkLogger.error("AudioPlayer", "GStreamer error: $message")
             playBin.stop()
-            _state.update { it.copy(status = Status.STOPPED, positionMs = 0L) }
+            _state.update { it.copy(playbackStatus = PlaybackStatus.STOPPED, positionMs = 0L) }
             stopPositionPolling()
         })
 
@@ -67,7 +69,7 @@ class AudioPlayer {
         playBin.play()
         _state.update {
             it.copy(
-                status = Status.PLAYING,
+                playbackStatus = PlaybackStatus.PLAYING,
                 currentTrackPath = filePath,
                 positionMs = startPositionMs,
                 durationMs = startDurationMs
@@ -90,7 +92,7 @@ class AudioPlayer {
         playBin.pause()
         _state.update {
             it.copy(
-                status = Status.PAUSED,
+                playbackStatus = PlaybackStatus.PAUSED,
                 currentTrackPath = filePath,
                 positionMs = positionMs,
                 durationMs = durationMs
@@ -105,19 +107,19 @@ class AudioPlayer {
 
     fun pause() {
         playBin.pause()
-        _state.update { it.copy(status = Status.PAUSED) }
+        _state.update { it.copy(playbackStatus = PlaybackStatus.PAUSED) }
         stopPositionPolling()
     }
 
     fun resume() {
         playBin.play()
-        _state.update { it.copy(status = Status.PLAYING) }
+        _state.update { it.copy(playbackStatus = PlaybackStatus.PLAYING) }
         startPositionPolling()
     }
 
     fun stop() {
         playBin.stop()
-        _state.update { it.copy(status = Status.STOPPED, currentTrackPath = null, positionMs = 0L) }
+        _state.update { it.copy(playbackStatus = PlaybackStatus.STOPPED, currentTrackPath = null, positionMs = 0L) }
         stopPositionPolling()
     }
 

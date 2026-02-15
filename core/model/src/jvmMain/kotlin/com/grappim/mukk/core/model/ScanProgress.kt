@@ -1,4 +1,4 @@
-package com.grappim.mukk.data
+package com.grappim.mukk.core.model
 
 data class ScanProgress(
     val isScanning: Boolean = false,

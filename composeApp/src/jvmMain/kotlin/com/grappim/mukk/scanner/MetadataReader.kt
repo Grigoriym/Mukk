@@ -3,6 +3,7 @@ package com.grappim.mukk.scanner
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.toComposeImageBitmap
 import com.grappim.mukk.MukkLogger
+import com.grappim.mukk.core.model.AudioMetadata
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.jaudiotagger.audio.AudioFileIO
@@ -10,18 +11,6 @@ import org.jaudiotagger.tag.FieldKey
 import java.io.File
 import java.util.logging.Level
 import java.util.logging.Logger
-
-data class AudioMetadata(
-    val title: String,
-    val artist: String,
-    val album: String,
-    val albumArtist: String,
-    val genre: String,
-    val trackNumber: Int,
-    val discNumber: Int,
-    val year: Int,
-    val durationMs: Long
-)
 
 class MetadataReader {
 

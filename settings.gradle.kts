@@ -33,3 +33,7 @@ plugins {
 }
 
 include(":composeApp")
+include(":core:player")
+include(":core:model")
+include(":core:scanner")
+include(":core:data")

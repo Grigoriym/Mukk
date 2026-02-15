@@ -10,9 +10,9 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.grappim.mukk.data.RepeatMode
-import com.grappim.mukk.data.ResumeMode
-import com.grappim.mukk.data.SettingsState
+import com.grappim.mukk.core.model.RepeatMode
+import com.grappim.mukk.core.model.ResumeMode
+import com.grappim.mukk.core.model.SettingsState
 
 @Composable
 fun SettingsDialog(
@@ -216,7 +216,7 @@ private fun LibrarySection(
 
     if (settingsState.libraryPath != null) {
         Text(
-            text = settingsState.libraryPath,
+            text = settingsState.libraryPath!!,
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )

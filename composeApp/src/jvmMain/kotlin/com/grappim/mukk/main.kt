@@ -12,7 +12,7 @@ import androidx.compose.ui.window.rememberWindowState
 import com.grappim.mukk.data.PreferencesManager
 import com.grappim.mukk.di.appModule
 import com.grappim.mukk.player.AudioPlayer
-import com.grappim.mukk.player.Status
+import com.grappim.mukk.core.model.PlaybackStatus
 import com.grappim.mukk.scanner.FileSystemWatcher
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.debounce
@@ -70,7 +70,7 @@ fun main() {
                 if (playbackState.currentTrackPath != null) {
                     preferencesManager.playbackPositionMs = playbackState.positionMs
                     preferencesManager.playbackDurationMs = playbackState.durationMs
-                    preferencesManager.playbackWasPlaying = playbackState.status == Status.PLAYING
+                    preferencesManager.playbackWasPlaying = playbackState.playbackStatus == PlaybackStatus.PLAYING
                 }
                 fileSystemWatcher.stop()
                 audioPlayer.dispose()

@@ -183,8 +183,6 @@ The app currently consumes ~400 MB in the system resource monitor. Investigate w
 
 ### 2. Modularisation
 
-### 3. The app should be one instance. Some apps handle it themselves — apps that implement D-Bus activation or use gtk_application_register() / single-instance logic will focus the existing window when launched" again (e.g., Firefox, Nautilus). But many apps don't.
-
 ## Behavioral Guidelines
 
 **Tradeoff:** These guidelines bias toward caution over speed. For trivial tasks, use judgment.

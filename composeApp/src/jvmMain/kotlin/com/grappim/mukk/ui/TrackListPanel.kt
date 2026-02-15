@@ -3,7 +3,6 @@
 package com.grappim.mukk.ui
 
 import androidx.compose.foundation.background
-import com.grappim.mukk.ui.components.instantClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -21,11 +20,12 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
-import com.grappim.mukk.data.ColumnConfig
-import com.grappim.mukk.data.FileEntry
-import com.grappim.mukk.data.MediaTrackData
-import com.grappim.mukk.data.TrackListColumn
+import com.grappim.mukk.core.model.FileEntry
+import com.grappim.mukk.core.model.MediaTrackData
+import com.grappim.mukk.core.model.ColumnConfig
+import com.grappim.mukk.core.model.TrackListColumn
 import com.grappim.mukk.ui.components.TrackContextDropdownMenu
+import com.grappim.mukk.ui.components.instantClickable
 import com.grappim.mukk.utils.formatFileSize
 import com.grappim.mukk.utils.formatTime
 import kotlinx.collections.immutable.ImmutableList
@@ -303,7 +303,7 @@ private fun TrackListPanelPreview() {
             entries = persistentListOf(
                 FileEntry(
                     file = File("name.mp3"),
-                    isDirectory =false,
+                    isDirectory = false,
                     name = "name",
                     trackData = MediaTrackData(
                         id = 1974,

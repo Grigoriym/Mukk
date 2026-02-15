@@ -12,6 +12,11 @@ kotlin {
     
     sourceSets {
         commonMain.dependencies {
+            implementation(projects.core.player)
+            implementation(projects.core.model)
+            implementation(projects.core.scanner)
+            implementation(projects.core.data)
+
             implementation(libs.compose.runtime)
             implementation(libs.compose.foundation)
             implementation(libs.compose.material3)

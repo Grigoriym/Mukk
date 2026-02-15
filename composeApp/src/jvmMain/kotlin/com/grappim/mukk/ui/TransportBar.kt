@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.SkipNext
@@ -24,8 +23,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import com.grappim.mukk.player.PlaybackState
-import com.grappim.mukk.player.Status
+import com.grappim.mukk.core.model.PlaybackState
+import com.grappim.mukk.core.model.PlaybackStatus
 import com.grappim.mukk.ui.components.SeekBar
 import com.grappim.mukk.ui.components.VolumeControl
 
@@ -73,7 +72,7 @@ fun TransportBar(
                 }
                 IconButton(onClick = onPlayPause) {
                     Icon(
-                        imageVector = if (playbackState.status == Status.PLAYING) {
+                        imageVector = if (playbackState.playbackStatus == PlaybackStatus.PLAYING) {
                             Icons.Default.Pause
                         } else {
                             Icons.Default.PlayArrow
