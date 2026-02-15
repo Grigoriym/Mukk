@@ -12,6 +12,11 @@ import java.io.File
 import java.util.logging.Level
 import java.util.logging.Logger
 
+data class NowPlayingExtras(
+    val albumArt: ImageBitmap?,
+    val lyrics: String?
+)
+
 class MetadataReader {
 
     init {
@@ -19,23 +24,16 @@ class MetadataReader {
         Logger.getLogger("org.jaudiotagger").level = Level.OFF
     }
 
-    suspend fun readAlbumArt(filePath: String): ImageBitmap? = withContext(Dispatchers.IO) {
+    suspend fun readNowPlayingExtras(file: File): NowPlayingExtras = withContext(Dispatchers.IO) {
         try {
-            val audioFile = AudioFileIO.read(File(filePath))
-            audioFile.tag?.firstArtwork?.binaryData?.toImageBitmap()
+            val audioFile = AudioFileIO.read(file)
+            NowPlayingExtras(
+                albumArt = audioFile.tag?.firstArtwork?.binaryData?.toImageBitmap(),
+                lyrics = audioFile.tag?.getFirst(FieldKey.LYRICS)?.takeIf { it.isNotBlank() }
+            )
         } catch (e: Exception) {
-            MukkLogger.warn("MetadataReader", "Failed to read album art for $filePath", e)
-            null
-        }
-    }
-
-    suspend fun readLyrics(filePath: String): String? = withContext(Dispatchers.IO) {
-        try {
-            val audioFile = AudioFileIO.read(File(filePath))
-            audioFile.tag?.getFirst(FieldKey.LYRICS)?.takeIf { it.isNotBlank() }
-        } catch (e: Exception) {
-            MukkLogger.warn("MetadataReader", "Failed to read lyrics for $filePath", e)
-            null
+            MukkLogger.warn("MetadataReader", "Failed to read now-playing extras for ${file.name}", e)
+            NowPlayingExtras(albumArt = null, lyrics = null)
         }
     }
 
@@ -66,7 +64,7 @@ class MetadataReader {
     private fun ByteArray.toImageBitmap(): ImageBitmap? = try {
         org.jetbrains.skia.Image.makeFromEncoded(this).toComposeImageBitmap()
     } catch (e: Exception) {
-        MukkLogger.warn("NowPlayingPanel", "Failed to decode album art image", e)
+        MukkLogger.warn("MetadataReader", "Failed to decode album art image", e)
         null
     }
 }

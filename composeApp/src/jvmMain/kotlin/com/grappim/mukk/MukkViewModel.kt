@@ -469,8 +469,9 @@ class MukkViewModel(
 
     private fun loadNowPlayingExtras(filePath: String) {
         viewModelScope.launch {
-            _currentAlbumArt.value = metadataReader.readAlbumArt(filePath)
-            _currentLyrics.value = metadataReader.readLyrics(filePath)
+            val extras = metadataReader.readNowPlayingExtras(File(filePath))
+            _currentAlbumArt.value = extras.albumArt
+            _currentLyrics.value = extras.lyrics
         }
     }
 
