@@ -21,8 +21,16 @@ import kotlinx.coroutines.flow.onEach
 import org.jetbrains.compose.resources.decodeToImageBitmap
 import org.koin.core.context.startKoin
 import org.koin.core.context.stopKoin
+import kotlin.system.exitProcess
 
 fun main() {
+    val singleInstance = SingleInstance.tryAcquire()
+    if (singleInstance == null) {
+        MukkLogger.info("Main", "Another instance is already running, notifying it")
+        SingleInstance.notifyExistingInstance()
+        exitProcess(0)
+    }
+    singleInstance.startListening()
     val koinApp = startKoin {
         modules(appModule)
     }
@@ -67,13 +75,17 @@ fun main() {
                 fileSystemWatcher.stop()
                 audioPlayer.dispose()
                 preferencesManager.dispose()
+                singleInstance.close()
                 stopKoin()
                 exitApplication()
             },
             title = "Mukk",
             state = windowState
         ) {
-            App()
+            LaunchedEffect(Unit) {
+                singleInstance.setWindow(window)
+            }
+            App(singleInstance = singleInstance)
         }
     }
 }

@@ -4,6 +4,7 @@ import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -61,7 +62,7 @@ private fun pickDirectoryNative(): String? {
 }
 
 @Composable
-fun App() {
+fun App(singleInstance: SingleInstance) {
     val viewModel = koinViewModel<MukkViewModel>()
     val preferencesManager = koinInject<PreferencesManager>()
     val uiState by viewModel.uiState.collectAsState()
@@ -71,6 +72,10 @@ fun App() {
     MukkTheme {
         val focusRequester = remember { FocusRequester() }
         LaunchedEffect(Unit) { focusRequester.requestFocus() }
+        DisposableEffect(singleInstance) {
+            singleInstance.setOnFocusRequest { focusRequester.requestFocus() }
+            onDispose { singleInstance.setOnFocusRequest {} }
+        }
 
         Box(
             modifier = Modifier
