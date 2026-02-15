@@ -1,10 +1,8 @@
 plugins {
-    alias(libs.plugins.kotlinMultiplatform)
+    alias(libs.plugins.mukk.kotlin.library)
 }
 
 kotlin {
-    jvm()
-
     sourceSets {
         commonMain.dependencies {
             implementation(projects.core.model)
