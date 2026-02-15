@@ -1,6 +1,6 @@
-package com.grappim.mukk.scanner
+package com.grappim.mukk.core.model.scanner
 
-import com.grappim.mukk.MukkLogger
+import com.grappim.mukk.core.model.MukkLogger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -13,14 +13,17 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.io.File
 import java.io.IOException
+import java.nio.file.ClosedWatchServiceException
 import java.nio.file.FileSystems
 import java.nio.file.FileVisitResult
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.SimpleFileVisitor
+import java.nio.file.StandardWatchEventKinds
 import java.nio.file.StandardWatchEventKinds.ENTRY_CREATE
 import java.nio.file.StandardWatchEventKinds.ENTRY_DELETE
 import java.nio.file.StandardWatchEventKinds.ENTRY_MODIFY
+import java.nio.file.WatchEvent
 import java.nio.file.WatchKey
 import java.nio.file.WatchService
 import java.nio.file.attribute.BasicFileAttributes
@@ -60,7 +63,7 @@ class FileSystemWatcher {
                 while (isActive) {
                     val key = try {
                         ws.poll(500, TimeUnit.MILLISECONDS) ?: continue
-                    } catch (_: java.nio.file.ClosedWatchServiceException) {
+                    } catch (_: ClosedWatchServiceException) {
                         break
                     }
                     val dir = keyToPath[key] ?: run {
@@ -70,10 +73,10 @@ class FileSystemWatcher {
 
                     for (event in key.pollEvents()) {
                         val kind = event.kind()
-                        if (kind == java.nio.file.StandardWatchEventKinds.OVERFLOW) continue
+                        if (kind == StandardWatchEventKinds.OVERFLOW) continue
 
                         @Suppress("UNCHECKED_CAST")
-                        val child = dir.resolve((event as java.nio.file.WatchEvent<Path>).context())
+                        val child = dir.resolve((event as WatchEvent<Path>).context())
 
                         when (kind) {
                             ENTRY_CREATE -> {

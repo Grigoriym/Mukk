@@ -1,13 +1,13 @@
 package com.grappim.mukk.di
 
 import com.grappim.mukk.MukkViewModel
-import com.grappim.mukk.data.DatabaseInit
-import com.grappim.mukk.data.PreferencesManager
-import com.grappim.mukk.data.TrackRepository
-import com.grappim.mukk.player.AudioPlayer
-import com.grappim.mukk.scanner.FileScanner
-import com.grappim.mukk.scanner.FileSystemWatcher
-import com.grappim.mukk.scanner.MetadataReader
+import com.grappim.mukk.core.data.DatabaseInit
+import com.grappim.mukk.core.data.PreferencesManager
+import com.grappim.mukk.core.data.TrackRepository
+import com.grappim.mukk.core.model.player.AudioPlayer
+import com.grappim.mukk.core.model.scanner.FileScanner
+import com.grappim.mukk.core.model.scanner.FileSystemWatcher
+import com.grappim.mukk.core.model.scanner.MetadataReader
 import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
 

@@ -1,18 +1,14 @@
-package com.grappim.mukk.data
+package com.grappim.mukk.core.data
 
-import com.grappim.mukk.MukkLogger
+import com.grappim.mukk.core.model.MukkLogger
 import com.grappim.mukk.core.model.RepeatMode
 import com.grappim.mukk.core.model.ResumeMode
 import com.grappim.mukk.core.model.TrackListColumn
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.*
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.io.File
-import java.util.Properties
+import java.util.*
 
 class PreferencesManager {
 

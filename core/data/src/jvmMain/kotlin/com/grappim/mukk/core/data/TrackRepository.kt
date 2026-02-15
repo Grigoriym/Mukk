@@ -1,4 +1,4 @@
-package com.grappim.mukk.data
+package com.grappim.mukk.core.data
 
 import com.grappim.mukk.core.model.MediaTrackData
 import kotlinx.coroutines.Dispatchers

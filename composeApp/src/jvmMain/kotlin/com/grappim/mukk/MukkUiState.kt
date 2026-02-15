@@ -1,4 +1,4 @@
-package com.grappim.mukk.data
+package com.grappim.mukk
 
 import androidx.compose.ui.graphics.ImageBitmap
 import com.grappim.mukk.core.model.ColumnConfig

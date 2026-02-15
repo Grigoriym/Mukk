@@ -1,6 +1,6 @@
-package com.grappim.mukk.scanner
+package com.grappim.mukk.core.model.scanner
 
-import com.grappim.mukk.data.TrackRepository
+import com.grappim.mukk.core.data.TrackRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File

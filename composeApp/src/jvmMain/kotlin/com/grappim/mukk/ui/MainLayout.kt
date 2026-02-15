@@ -13,8 +13,8 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import com.grappim.mukk.core.model.FileEntry
-import com.grappim.mukk.data.MukkUiState
-import com.grappim.mukk.data.PreferencesManager
+import com.grappim.mukk.MukkUiState
+import com.grappim.mukk.core.data.PreferencesManager
 import com.grappim.mukk.core.model.TrackListColumn
 import java.awt.Cursor
 import java.io.File

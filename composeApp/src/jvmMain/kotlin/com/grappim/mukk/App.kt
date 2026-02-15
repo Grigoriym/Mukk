@@ -20,7 +20,8 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
-import com.grappim.mukk.data.PreferencesManager
+import com.grappim.mukk.core.data.PreferencesManager
+import com.grappim.mukk.core.model.MukkLogger
 import com.grappim.mukk.ui.MainLayout
 import com.grappim.mukk.ui.MukkTheme
 import com.grappim.mukk.ui.SettingsDialog

@@ -1,4 +1,4 @@
-package com.grappim.mukk
+package com.grappim.mukk.core.model
 
 import java.io.File
 import java.io.FileOutputStream

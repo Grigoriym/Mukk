@@ -12,6 +12,7 @@ kotlinx-coroutines = "1.10.2"
 material3 = "1.10.0-alpha05"
 sqlite-jdbc = "3.51.1.0"
 kotlinx-collections = "0.4.0"
+composeIcons = "1.7.3"
 
 [libraries]
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
@@ -37,6 +38,7 @@ koin-bom = { module = "io.insert-koin:koin-bom", version.ref = "koin" }
 koin-core = { module = "io.insert-koin:koin-core" }
 koin-compose = { module = "io.insert-koin:koin-compose" }
 koin-compose-viewmodel = { module = "io.insert-koin:koin-compose-viewmodel" }
+compose-material-icons-extended = {module = "org.jetbrains.compose.material:material-icons-extended", version.ref = "composeIcons"}
 
 [plugins]
 composeHotReload = { id = "org.jetbrains.compose.hot-reload", version.ref = "composeHotReload" }

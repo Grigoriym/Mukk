@@ -1,14 +1,14 @@
-package com.grappim.mukk.player
+package com.grappim.mukk.core.model.player
 
+import com.grappim.mukk.core.model.AudioDeviceInfo
+import com.grappim.mukk.core.model.MukkLogger
+import com.grappim.mukk.core.model.PlaybackState
+import com.grappim.mukk.core.model.PlaybackStatus
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
-import com.grappim.mukk.MukkLogger
-import com.grappim.mukk.core.model.PlaybackState
-import com.grappim.mukk.core.model.PlaybackStatus
-import com.grappim.mukk.core.model.AudioDeviceInfo
 import org.freedesktop.gstreamer.Bus
 import org.freedesktop.gstreamer.Gst
 import org.freedesktop.gstreamer.State

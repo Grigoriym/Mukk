@@ -1,4 +1,4 @@
-package com.grappim.mukk.data
+package com.grappim.mukk.core.data
 
 import org.jetbrains.exposed.v1.core.dao.id.LongIdTable
 

@@ -9,11 +9,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
-import com.grappim.mukk.data.PreferencesManager
+import com.grappim.mukk.core.data.PreferencesManager
+import com.grappim.mukk.core.model.MukkLogger
 import com.grappim.mukk.di.appModule
-import com.grappim.mukk.player.AudioPlayer
+import com.grappim.mukk.core.model.player.AudioPlayer
 import com.grappim.mukk.core.model.PlaybackStatus
-import com.grappim.mukk.scanner.FileSystemWatcher
+import com.grappim.mukk.core.model.scanner.FileSystemWatcher
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.launchIn

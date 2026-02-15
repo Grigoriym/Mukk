@@ -1,8 +1,8 @@
-package com.grappim.mukk.scanner
+package com.grappim.mukk.core.model.scanner
 
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.toComposeImageBitmap
-import com.grappim.mukk.MukkLogger
+import com.grappim.mukk.core.model.MukkLogger
 import com.grappim.mukk.core.model.AudioMetadata
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
