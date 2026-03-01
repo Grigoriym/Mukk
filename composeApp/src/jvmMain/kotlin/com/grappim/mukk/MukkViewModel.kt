@@ -476,7 +476,30 @@ class MukkViewModel(
     }
 
     private suspend fun loadSelectedFolderEntries(path: String) {
-        val entries = listDirectoryEntries(path).filter { !it.isDirectory }.toImmutableList()
+        val dir = File(path)
+        if (!dir.isDirectory) {
+            _selectedFolderEntries.value = persistentListOf()
+            return
+        }
+        val audioFiles = dir.walkTopDown()
+            .filter { it.isFile && it.extension.lowercase() in AUDIO_EXTENSIONS }
+            .toList()
+        val entries = audioFiles
+            .map { file ->
+                val trackData = lookupTrackData(file.absolutePath)
+                FileEntry(
+                    file = file,
+                    isDirectory = false,
+                    name = trackData?.title ?: file.name,
+                    trackData = trackData
+                )
+            }
+            .sortedWith(
+                compareBy<FileEntry> { it.file.parent }
+                    .thenBy { it.trackData?.trackNumber ?: Int.MAX_VALUE }
+                    .thenBy { it.name.lowercase() }
+            )
+            .toImmutableList()
         _selectedFolderEntries.value = entries
     }
 
