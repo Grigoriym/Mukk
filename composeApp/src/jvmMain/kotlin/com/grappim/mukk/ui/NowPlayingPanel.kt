@@ -107,15 +107,21 @@ fun NowPlayingPanel(
                 )
             }
 
-            val genreYear = buildList {
-                if (currentTrack.genre.isNotEmpty()) add(currentTrack.genre)
-                if (currentTrack.year > 0) add(currentTrack.year.toString())
-            }.joinToString(" · ")
-
-            if (genreYear.isNotEmpty()) {
+            if (currentTrack.year > 0) {
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
-                    text = genreYear,
+                    text = currentTrack.year.toString(),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+
+            if (currentTrack.genre.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = currentTrack.genre,
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
