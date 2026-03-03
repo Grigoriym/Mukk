@@ -66,6 +66,28 @@ class PreferencesManager {
         get() = getString("playingTrack", "")
         set(value) = set("playingTrack", value)
 
+    var trackListColumnWidths: Map<TrackListColumn, Int>
+        get() {
+            val saved = getString("trackList.columnWidths", "").takeIf { it.isNotEmpty() }
+                ?: return emptyMap()
+            return saved.split("|").mapNotNull { entry ->
+                val parts = entry.split("=")
+                if (parts.size != 2) return@mapNotNull null
+                try {
+                    val col = TrackListColumn.valueOf(parts[0])
+                    val width = parts[1].toIntOrNull() ?: return@mapNotNull null
+                    col to width
+                } catch (e: IllegalArgumentException) {
+                    MukkLogger.warn("PreferencesManager", "Unknown column name in widths: ${parts[0]}", e)
+                    null
+                }
+            }.toMap()
+        }
+        set(value) = set(
+            "trackList.columnWidths",
+            value.entries.joinToString("|") { "${it.key.name}=${it.value}" }
+        )
+
     var trackListColumns: List<TrackListColumn>
         get() {
             val saved = getString("trackList.columns", "").takeIf { it.isNotEmpty() }

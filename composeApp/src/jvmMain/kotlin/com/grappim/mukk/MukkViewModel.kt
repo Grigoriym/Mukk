@@ -146,7 +146,7 @@ class MukkViewModel(
         _selectedTrackPath.value = null
         saveFolderTreeState()
         viewModelScope.launch {
-            val scanned = fileScanner.scanFolder(File(path))
+            val scanned = fileScanner.scan(File(path))
             if (scanned > 0) loadTracksSync()
             loadSelectedFolderEntries(path)
         }
@@ -339,6 +339,12 @@ class MukkViewModel(
         _columnConfig.value = DEFAULT_COLUMN_CONFIG
     }
 
+    fun saveColumnWidth(column: TrackListColumn, widthDp: Int) {
+        val current = _columnConfig.value
+        _columnConfig.value = current.copy(columnWidths = current.columnWidths + (column to widthDp))
+        preferencesManager.trackListColumnWidths = _columnConfig.value.columnWidths
+    }
+
     fun toggleColumnVisibility(column: TrackListColumn) {
         val current = _columnConfig.value.visibleColumns
         if (column in current) {
@@ -353,13 +359,14 @@ class MukkViewModel(
 
     private fun saveColumnConfig() {
         preferencesManager.trackListColumns = _columnConfig.value.visibleColumns
+        preferencesManager.trackListColumnWidths = _columnConfig.value.columnWidths
     }
 
     private fun restoreColumnConfig() {
         val columns = preferencesManager.trackListColumns
-        if (columns.isNotEmpty()) {
-            _columnConfig.value = ColumnConfig(columns.toPersistentList())
-        }
+        val widths = preferencesManager.trackListColumnWidths
+        val visibleColumns = if (columns.isNotEmpty()) columns.toPersistentList() else DEFAULT_COLUMN_CONFIG.visibleColumns
+        _columnConfig.value = ColumnConfig(visibleColumns = visibleColumns, columnWidths = widths)
     }
 
     private fun savePlayingTrack(filePath: String) {

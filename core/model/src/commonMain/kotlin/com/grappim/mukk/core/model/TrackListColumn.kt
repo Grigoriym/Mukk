@@ -5,24 +5,25 @@ import kotlinx.collections.immutable.toPersistentList
 
 enum class TrackListColumn(
     val label: String,
-    val defaultWeight: Float,
+    val defaultWidthDp: Int,
     val visibleByDefault: Boolean
 ) {
-    TRACK_NUMBER("#", 0.4f, true),
-    FILE_NAME("File Name", 2f, true),
-    TITLE("Title", 2f, true),
-    ALBUM("Album", 2f, true),
-    ARTIST("Artist", 2f, true),
-    DURATION("Duration", 1f, true),
-    ALBUM_ARTIST("Album Artist", 2f, false),
-    GENRE("Genre", 1.5f, false),
-    YEAR("Year", 0.6f, false),
-    DISC_NUMBER("Disc #", 0.4f, false),
-    FILE_SIZE("File Size", 1f, false);
+    TRACK_NUMBER("#", 40, true),
+    FILE_NAME("File Name", 180, true),
+    TITLE("Title", 200, true),
+    ALBUM("Album", 180, true),
+    ARTIST("Artist", 160, true),
+    DURATION("Duration", 70, true),
+    ALBUM_ARTIST("Album Artist", 160, false),
+    GENRE("Genre", 120, false),
+    YEAR("Year", 60, false),
+    DISC_NUMBER("Disc #", 50, false),
+    FILE_SIZE("File Size", 90, false);
 }
 
 data class ColumnConfig(
-    val visibleColumns: PersistentList<TrackListColumn>
+    val visibleColumns: PersistentList<TrackListColumn>,
+    val columnWidths: Map<TrackListColumn, Int> = emptyMap()
 )
 
 val DEFAULT_COLUMN_CONFIG = ColumnConfig(

@@ -108,6 +108,7 @@ fun App(singleInstance: SingleInstance) {
                     }
                 },
                 onToggleColumn = { viewModel.toggleColumnVisibility(it) },
+                onColumnWidthChange = { col, w -> viewModel.saveColumnWidth(col, w) },
                 onTrackClick = { entry -> viewModel.selectTrack(entry.file.absolutePath) },
                 onTrackDoubleClick = { entry -> viewModel.playFile(entry) },
                 getSubfolders = { path -> viewModel.getSubfolders(path) },

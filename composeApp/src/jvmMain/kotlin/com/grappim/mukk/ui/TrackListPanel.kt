@@ -3,6 +3,7 @@
 package com.grappim.mukk.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -11,9 +12,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.input.pointer.PointerButton
-import androidx.compose.ui.input.pointer.PointerEventType
-import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.*
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextOverflow
@@ -30,7 +29,11 @@ import com.grappim.mukk.utils.formatFileSize
 import com.grappim.mukk.utils.formatTime
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
+import java.awt.Cursor
 import java.io.File
+
+private val RESIZE_DIVIDER_WIDTH = 6.dp
+private const val MIN_COLUMN_WIDTH_DP = 40
 
 @Composable
 fun TrackListPanel(
@@ -39,10 +42,18 @@ fun TrackListPanel(
     selectedTrackPath: String?,
     columnConfig: ColumnConfig,
     onToggleColumn: (TrackListColumn) -> Unit,
+    onColumnWidthChange: (TrackListColumn, Int) -> Unit,
     onTrackClick: (FileEntry) -> Unit,
     onTrackDoubleClick: (FileEntry) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    // Local widths for live drag updates — synced from config, persisted to ViewModel on drag end
+    val localWidths = remember { mutableStateMapOf<TrackListColumn, Int>() }
+    LaunchedEffect(columnConfig.columnWidths) {
+        localWidths.clear()
+        localWidths.putAll(columnConfig.columnWidths)
+    }
+
     if (entries.isEmpty()) {
         Box(
             modifier = modifier.fillMaxSize(),
@@ -59,7 +70,10 @@ fun TrackListPanel(
             item {
                 TrackListHeader(
                     columnConfig = columnConfig,
-                    onToggleColumn = onToggleColumn
+                    localWidths = localWidths,
+                    onToggleColumn = onToggleColumn,
+                    onColumnWidthChange = { col, w -> localWidths[col] = w },
+                    onColumnWidthCommit = onColumnWidthChange
                 )
             }
             items(entries, key = { it.file.absolutePath }) { entry ->
@@ -70,6 +84,7 @@ fun TrackListPanel(
                     isPlaying = isPlaying,
                     isSelected = isSelected,
                     columnConfig = columnConfig,
+                    localWidths = localWidths,
                     onClick = { onTrackClick(entry) },
                     onDoubleClick = { onTrackDoubleClick(entry) }
                 )
@@ -123,7 +138,10 @@ private fun getColumnAlpha(column: TrackListColumn): Float {
 @Composable
 private fun TrackListHeader(
     columnConfig: ColumnConfig,
-    onToggleColumn: (TrackListColumn) -> Unit
+    localWidths: Map<TrackListColumn, Int>,
+    onToggleColumn: (TrackListColumn) -> Unit,
+    onColumnWidthChange: (TrackListColumn, Int) -> Unit,
+    onColumnWidthCommit: (TrackListColumn, Int) -> Unit
 ) {
     var showContextMenu by remember { mutableStateOf(false) }
     var contextMenuOffset by remember { mutableStateOf(DpOffset.Zero) }
@@ -133,20 +151,27 @@ private fun TrackListHeader(
             modifier = Modifier
                 .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
                 .padding(horizontal = 16.dp, vertical = 8.dp),
-            setContextMenuOffset = { value ->
-                contextMenuOffset = value
-            },
-            showContextMenu = { value ->
-                showContextMenu = value
-            },
+            setContextMenuOffset = { value -> contextMenuOffset = value },
+            showContextMenu = { value -> showContextMenu = value },
         ) {
-            columnConfig.visibleColumns.forEach { column ->
+            val columns = columnConfig.visibleColumns
+            columns.forEachIndexed { index, column ->
+                val isLast = index == columns.lastIndex
+                val effectiveWidth = localWidths[column] ?: column.defaultWidthDp
                 Text(
                     text = column.label,
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.weight(column.defaultWeight)
+                    modifier = if (isLast) Modifier.weight(1f) else Modifier.width(effectiveWidth.dp)
                 )
+                if (!isLast) {
+                    ColumnResizeDivider(
+                        column = column,
+                        currentWidthDp = effectiveWidth,
+                        onWidthChange = { newWidth -> onColumnWidthChange(column, newWidth) },
+                        onWidthChangeCommit = { newWidth -> onColumnWidthCommit(column, newWidth) }
+                    )
+                }
             }
         }
 
@@ -156,6 +181,47 @@ private fun TrackListHeader(
             offset = contextMenuOffset,
             columnConfig = columnConfig,
             onToggleColumn = onToggleColumn
+        )
+    }
+}
+
+@Composable
+private fun ColumnResizeDivider(
+    column: TrackListColumn,
+    currentWidthDp: Int,
+    onWidthChange: (Int) -> Unit,
+    onWidthChangeCommit: (Int) -> Unit
+) {
+    val density = LocalDensity.current
+    val latestWidthDp by rememberUpdatedState(currentWidthDp)
+    val latestOnWidthChange by rememberUpdatedState(onWidthChange)
+    val latestOnWidthChangeCommit by rememberUpdatedState(onWidthChangeCommit)
+
+    Box(
+        modifier = Modifier
+            .width(RESIZE_DIVIDER_WIDTH)
+            .fillMaxHeight()
+            .pointerHoverIcon(PointerIcon(Cursor(Cursor.E_RESIZE_CURSOR)))
+            .pointerInput(column) {
+                detectDragGestures(
+                    onDragEnd = { latestOnWidthChangeCommit(latestWidthDp) },
+                    onDragCancel = {}
+                ) { change, dragAmount ->
+                    change.consume()
+                    val deltaDp = with(density) { dragAmount.x.toDp().value.toInt() }
+                    if (deltaDp != 0) {
+                        val newWidth = (latestWidthDp + deltaDp).coerceAtLeast(MIN_COLUMN_WIDTH_DP)
+                        latestOnWidthChange(newWidth)
+                    }
+                }
+            },
+        contentAlignment = Alignment.Center
+    ) {
+        Box(
+            modifier = Modifier
+                .width(1.dp)
+                .fillMaxHeight()
+                .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
         )
     }
 }
@@ -172,6 +238,7 @@ private fun PointerAwareRow(
     Row(
         modifier = modifier
             .fillMaxWidth()
+            .height(IntrinsicSize.Max)
             .pointerInput(Unit) {
                 awaitPointerEventScope {
                     while (true) {
@@ -193,7 +260,7 @@ private fun PointerAwareRow(
                     }
                 }
             },
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+        horizontalArrangement = Arrangement.Start
     ) {
         content()
     }
@@ -239,6 +306,7 @@ private fun TrackRow(
     isPlaying: Boolean,
     isSelected: Boolean,
     columnConfig: ColumnConfig,
+    localWidths: Map<TrackListColumn, Int>,
     onClick: () -> Unit,
     onDoubleClick: () -> Unit
 ) {
@@ -257,7 +325,6 @@ private fun TrackRow(
     var contextMenuOffset by remember { mutableStateOf(DpOffset.Zero) }
 
     Box {
-
         PointerAwareRow(
             modifier = Modifier
                 .background(bgColor)
@@ -265,22 +332,24 @@ private fun TrackRow(
                     onClick = onClick,
                     onDoubleClick = onDoubleClick
                 ).padding(horizontal = 16.dp, vertical = 10.dp),
-            setContextMenuOffset = { value ->
-                contextMenuOffset = value
-            },
-            showContextMenu = { value ->
-                showContextMenu = value
-            },
+            setContextMenuOffset = { value -> contextMenuOffset = value },
+            showContextMenu = { value -> showContextMenu = value },
         ) {
-            columnConfig.visibleColumns.forEach { column ->
+            val columns = columnConfig.visibleColumns
+            columns.forEachIndexed { index, column ->
+                val isLast = index == columns.lastIndex
+                val effectiveWidth = localWidths[column] ?: column.defaultWidthDp
                 Text(
                     text = getColumnValue(column, entry),
                     style = getColumnTextStyle(column),
                     color = textColor.copy(alpha = getColumnAlpha(column)),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(column.defaultWeight)
+                    modifier = if (isLast) Modifier.weight(1f) else Modifier.width(effectiveWidth.dp)
                 )
+                if (!isLast) {
+                    Spacer(Modifier.width(RESIZE_DIVIDER_WIDTH))
+                }
             }
         }
 
@@ -331,6 +400,7 @@ private fun TrackListPanelPreview() {
                 )
             ),
             onToggleColumn = {},
+            onColumnWidthChange = { _, _ -> },
             onTrackClick = {},
             onTrackDoubleClick = {}
         )

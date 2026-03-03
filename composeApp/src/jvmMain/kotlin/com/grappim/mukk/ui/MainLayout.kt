@@ -29,6 +29,7 @@ fun MainLayout(
     uiState: MukkUiState,
     preferencesManager: PreferencesManager,
     onToggleColumn: (TrackListColumn) -> Unit,
+    onColumnWidthChange: (TrackListColumn, Int) -> Unit,
     onToggleExpand: (String) -> Unit,
     onSelectFolder: (String) -> Unit,
     onOpenFolderClick: () -> Unit,
@@ -88,6 +89,7 @@ fun MainLayout(
                 selectedTrackPath = uiState.selectedTrackPath,
                 columnConfig = uiState.columnConfig,
                 onToggleColumn = onToggleColumn,
+                onColumnWidthChange = onColumnWidthChange,
                 onTrackClick = onTrackClick,
                 onTrackDoubleClick = onTrackDoubleClick,
                 modifier = Modifier.weight(1f)
