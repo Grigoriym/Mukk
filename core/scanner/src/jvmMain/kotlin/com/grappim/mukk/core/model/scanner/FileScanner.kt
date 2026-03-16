@@ -1,6 +1,7 @@
 package com.grappim.mukk.core.model.scanner
 
 import com.grappim.mukk.core.data.TrackRepository
+import com.grappim.mukk.core.model.MukkLogger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -50,7 +51,16 @@ class FileScanner(
         val existing = trackRepository.findByPath(file.absolutePath)
 
         if (existing != null) {
-            if (file.lastModified() > existing.lastModified) {
+            // Also re-scan if db.lastModified == 0 (previous read failed) or if the entry looks
+            // like a failed read (title = filename, empty artist/album, zero duration).
+            val looksLikeFailedRead = existing.artist.isEmpty()
+                && existing.album.isEmpty()
+                && existing.duration == 0L
+            val needsRescan = file.lastModified() > existing.lastModified
+                || existing.lastModified == 0L
+                || looksLikeFailedRead
+            if (needsRescan) {
+                MukkLogger.debug("FileScanner", "Re-scanning modified file: ${file.name} (file=${file.lastModified()}, db=${existing.lastModified})")
                 val metadata = metadataReader.read(file)
                 trackRepository.updateByPath(
                     filePath = file.absolutePath,
@@ -64,10 +74,11 @@ class FileScanner(
                     year = metadata?.year ?: 0,
                     durationMs = metadata?.durationMs ?: 0L,
                     fileSize = file.length(),
-                    lastModified = file.lastModified()
+                    lastModified = if (metadata != null) file.lastModified() else 0L
                 )
                 return true
             }
+            MukkLogger.debug("FileScanner", "Skipping unchanged file: ${file.name} (file=${file.lastModified()}, db=${existing.lastModified})")
             return false
         }
 
@@ -84,7 +95,7 @@ class FileScanner(
             year = metadata?.year ?: 0,
             durationMs = metadata?.durationMs ?: 0L,
             fileSize = file.length(),
-            lastModified = file.lastModified()
+            lastModified = if (metadata != null) file.lastModified() else 0L
         )
         return inserted
     }

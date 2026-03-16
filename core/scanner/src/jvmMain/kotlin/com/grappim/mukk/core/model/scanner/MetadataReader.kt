@@ -43,17 +43,33 @@ class MetadataReader {
             val tag = audioFile.tag
             val header = audioFile.audioHeader
 
+            val title = tag?.getFirst(FieldKey.TITLE)?.takeIf { it.isNotBlank() } ?: file.nameWithoutExtension
+            val artist = tag?.getFirst(FieldKey.ARTIST).orEmpty()
+            val album = tag?.getFirst(FieldKey.ALBUM).orEmpty()
+            val albumArtist = tag?.getFirst(FieldKey.ALBUM_ARTIST).orEmpty()
+            val genre = tag?.getFirst(FieldKey.GENRE).orEmpty()
+            val trackNumber = tag?.getFirst(FieldKey.TRACK)?.toIntOrNull() ?: 0
+            val discNumber = tag?.getFirst(FieldKey.DISC_NO)?.toIntOrNull() ?: 0
+            val year = tag?.getFirst(FieldKey.YEAR)?.take(4)?.toIntOrNull() ?: 0
+            val durationMs = header.trackLength.toLong() * 1000L
+
+            MukkLogger.debug(
+                "MetadataReader",
+                "Read [${file.name}]: tagType=${tag?.javaClass?.simpleName} title='$title'" +
+                    " artist='$artist' album='$album' albumArtist='$albumArtist'" +
+                    " genre='$genre' track=$trackNumber disc=$discNumber year=$year durationMs=$durationMs"
+            )
+
             AudioMetadata(
-                title = tag?.getFirst(FieldKey.TITLE)?.takeIf { it.isNotBlank() }
-                    ?: file.nameWithoutExtension,
-                artist = tag?.getFirst(FieldKey.ARTIST).orEmpty(),
-                album = tag?.getFirst(FieldKey.ALBUM).orEmpty(),
-                albumArtist = tag?.getFirst(FieldKey.ALBUM_ARTIST).orEmpty(),
-                genre = tag?.getFirst(FieldKey.GENRE).orEmpty(),
-                trackNumber = tag?.getFirst(FieldKey.TRACK)?.toIntOrNull() ?: 0,
-                discNumber = tag?.getFirst(FieldKey.DISC_NO)?.toIntOrNull() ?: 0,
-                year = tag?.getFirst(FieldKey.YEAR)?.take(4)?.toIntOrNull() ?: 0,
-                durationMs = header.trackLength.toLong() * 1000L
+                title = title,
+                artist = artist,
+                album = album,
+                albumArtist = albumArtist,
+                genre = genre,
+                trackNumber = trackNumber,
+                discNumber = discNumber,
+                year = year,
+                durationMs = durationMs
             )
         } catch (e: Exception) {
             MukkLogger.warn("MetadataReader", "Failed to read metadata for ${file.name}", e)
