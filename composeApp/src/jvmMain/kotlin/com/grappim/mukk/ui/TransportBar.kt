@@ -25,7 +25,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.grappim.mukk.core.model.PlaybackState
 import com.grappim.mukk.core.model.PlaybackStatus
-import com.grappim.mukk.ui.components.SeekBar
+import com.grappim.mukk.ui.components.WaveformSeekBar
 import com.grappim.mukk.ui.components.VolumeControl
 
 @Composable
@@ -33,6 +33,7 @@ fun TransportBar(
     playbackState: PlaybackState,
     currentTrackTitle: String,
     currentTrackArtist: String,
+    waveformPeaks: FloatArray?,
     onPlayPause: () -> Unit,
     onStop: () -> Unit,
     onPrevious: () -> Unit,
@@ -47,7 +48,8 @@ fun TransportBar(
             .background(MaterialTheme.colorScheme.surface)
             .padding(horizontal = 16.dp, vertical = 8.dp)
     ) {
-        SeekBar(
+        WaveformSeekBar(
+            peaks = waveformPeaks,
             positionMs = playbackState.positionMs,
             durationMs = playbackState.durationMs,
             onSeek = onSeek,
@@ -138,6 +140,7 @@ private fun TransportBarPreview() {
             playbackState = PlaybackState(),
             currentTrackTitle = "Test",
             currentTrackArtist = "TestArtist",
+            waveformPeaks = null,
             onPlayPause = {},
             onStop = {},
             onPrevious = {},

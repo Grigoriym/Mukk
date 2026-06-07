@@ -21,6 +21,7 @@ data class MukkUiState(
     val playingFolderPath: String? = null,
     val currentAlbumArt: ImageBitmap? = null,
     val currentLyrics: String? = null,
+    val waveformPeaks: FloatArray? = null,
     val scanProgress: ScanProgress = ScanProgress(),
     val columnConfig: ColumnConfig = DEFAULT_COLUMN_CONFIG,
     val settingsState: SettingsState = SettingsState()

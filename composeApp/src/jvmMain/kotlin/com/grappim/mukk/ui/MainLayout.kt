@@ -119,6 +119,7 @@ fun MainLayout(
             playbackState = uiState.playbackState,
             currentTrackTitle = uiState.currentTrack?.title ?: "",
             currentTrackArtist = uiState.currentTrack?.artist ?: "",
+            waveformPeaks = uiState.waveformPeaks,
             onPlayPause = onPlayPause,
             onStop = onStop,
             onPrevious = onPrevious,

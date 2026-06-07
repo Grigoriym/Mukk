@@ -1,9 +1,13 @@
 package com.grappim.mukk.ui
 
+import androidx.compose.foundation.LocalScrollbarStyle
+import androidx.compose.foundation.VerticalScrollbar
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollbarAdapter
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -89,14 +93,25 @@ fun FolderTreePanel(
                 buildTreeItems(rootPath, folderTreeState, playingFolderPath, getSubfolders)
             }
 
-            LazyColumn(modifier = Modifier.fillMaxSize()) {
-                items(treeItems, key = { it.path }) { item ->
-                    FolderRow(
-                        item = item,
-                        onToggleExpand = onToggleExpand,
-                        onSelect = onSelectFolder
-                    )
+            val listState = rememberLazyListState()
+            Box(modifier = Modifier.fillMaxSize()) {
+                LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
+                    items(treeItems, key = { it.path }) { item ->
+                        FolderRow(
+                            item = item,
+                            onToggleExpand = onToggleExpand,
+                            onSelect = onSelectFolder
+                        )
+                    }
                 }
+                VerticalScrollbar(
+                    adapter = rememberScrollbarAdapter(listState),
+                    style = LocalScrollbarStyle.current.copy(
+                        unhoverColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f),
+                        hoverColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                    ),
+                    modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight()
+                )
             }
         }
     }

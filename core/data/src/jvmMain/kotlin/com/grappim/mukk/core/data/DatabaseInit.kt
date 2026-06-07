@@ -20,7 +20,7 @@ class DatabaseInit {
         )
 
         transaction(database) {
-            SchemaUtils.create(MediaTracks)
+            SchemaUtils.create(MediaTracks, WaveformCacheTable)
         }
     }
 }

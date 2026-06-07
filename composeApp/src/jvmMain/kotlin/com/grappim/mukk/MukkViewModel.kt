@@ -5,8 +5,10 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.grappim.mukk.core.data.PreferencesManager
 import com.grappim.mukk.core.data.TrackRepository
+import com.grappim.mukk.core.data.WaveformRepository
 import com.grappim.mukk.core.model.*
 import com.grappim.mukk.core.model.player.AudioPlayer
+import com.grappim.mukk.core.model.player.WaveformExtractor
 import com.grappim.mukk.core.model.scanner.FileScanner
 import com.grappim.mukk.core.model.scanner.FileSystemEvent
 import com.grappim.mukk.core.model.scanner.FileSystemWatcher
@@ -26,7 +28,9 @@ class MukkViewModel(
     private val preferencesManager: PreferencesManager,
     private val fileScanner: FileScanner,
     private val metadataReader: MetadataReader,
-    private val fileSystemWatcher: FileSystemWatcher
+    private val fileSystemWatcher: FileSystemWatcher,
+    private val waveformExtractor: WaveformExtractor,
+    private val waveformRepository: WaveformRepository
 ) : ViewModel() {
 
     private val _tracks = MutableStateFlow<List<MediaTrackData>>(emptyList())
@@ -35,6 +39,7 @@ class MukkViewModel(
     private val _selectedTrackPath = MutableStateFlow<String?>(null)
     private val _currentAlbumArt = MutableStateFlow<ImageBitmap?>(null)
     private val _currentLyrics = MutableStateFlow<String?>(null)
+    private val _waveformPeaks = MutableStateFlow<FloatArray?>(null)
     private val _scanProgress = MutableStateFlow(ScanProgress())
     private val _columnConfig = MutableStateFlow(DEFAULT_COLUMN_CONFIG)
     private val _settingsState = MutableStateFlow(SettingsState())
@@ -49,8 +54,8 @@ class MukkViewModel(
         ) { fts, sfe, stp, sp, cc ->
             PrimaryState(fts, sfe, stp, sp, cc)
         },
-        combine(audioPlayer.state, _tracks, _currentAlbumArt, _currentLyrics) { ps, tracks, art, lyrics ->
-            PlaybackBundle(ps, tracks, art, lyrics)
+        combine(audioPlayer.state, _tracks, _currentAlbumArt, _currentLyrics, _waveformPeaks) { ps, tracks, art, lyrics, peaks ->
+            PlaybackBundle(ps, tracks, art, lyrics, peaks)
         },
         _settingsState
     ) { primary, playback, settings ->
@@ -67,12 +72,14 @@ class MukkViewModel(
             playingFolderPath = playingFolderPath,
             currentAlbumArt = playback.albumArt,
             currentLyrics = playback.lyrics,
+            waveformPeaks = playback.waveformPeaks,
             settingsState = settings
         )
     }.stateIn(viewModelScope, SharingStarted.Eagerly, MukkUiState())
 
     private var currentTrackIndex: Int = -1
     private var watcherCollectionJob: Job? = null
+    private var waveformJob: Job? = null
 
     init {
         audioPlayer.onTrackFinished = { nextTrack() }
@@ -207,6 +214,9 @@ class MukkViewModel(
         audioPlayer.stop()
         _currentAlbumArt.value = null
         _currentLyrics.value = null
+        waveformJob?.cancel()
+        waveformJob = null
+        _waveformPeaks.value = null
         clearPlayingTrack()
     }
 
@@ -480,6 +490,28 @@ class MukkViewModel(
             _currentAlbumArt.value = extras.albumArt
             _currentLyrics.value = extras.lyrics
         }
+        loadWaveform(filePath)
+    }
+
+    private fun loadWaveform(filePath: String) {
+        waveformJob?.cancel()
+        _waveformPeaks.value = null
+        waveformJob = viewModelScope.launch {
+            try {
+                val cached = waveformRepository.get(filePath)
+                if (cached != null) {
+                    _waveformPeaks.value = cached
+                    return@launch
+                }
+                val peaks = waveformExtractor.extract(File(filePath))
+                if (peaks != null) {
+                    _waveformPeaks.value = peaks
+                    waveformRepository.put(filePath, peaks)
+                }
+            } catch (e: Exception) {
+                MukkLogger.warn("MukkViewModel", "Waveform load failed: $filePath", e)
+            }
+        }
     }
 
     private suspend fun loadSelectedFolderEntries(path: String) {
@@ -635,7 +667,8 @@ class MukkViewModel(
         val playbackState: PlaybackState,
         val tracks: List<MediaTrackData>,
         val albumArt: ImageBitmap?,
-        val lyrics: String?
+        val lyrics: String?,
+        val waveformPeaks: FloatArray?
     )
 
     companion object
