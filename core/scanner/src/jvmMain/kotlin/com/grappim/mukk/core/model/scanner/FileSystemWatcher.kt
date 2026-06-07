@@ -175,10 +175,13 @@ class FileSystemWatcher {
     }
 
     private fun isAudioFile(path: Path): Boolean {
-        val extension = path.fileName.toString()
-            .substringAfterLast('.', "")
-            .lowercase()
-        return extension in FileScanner.AUDIO_EXTENSIONS
+        val ext = path.fileName.toString().substringAfterLast('.', "").lowercase()
+        if (ext.isNotEmpty()) return ext in FileScanner.AUDIO_EXTENSIONS
+        return try {
+            Files.probeContentType(path)?.startsWith("audio/") == true
+        } catch (_: Exception) {
+            false
+        }
     }
 
     private fun hasFileExtension(path: Path): Boolean {

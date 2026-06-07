@@ -5,6 +5,7 @@ import com.grappim.mukk.core.model.MukkLogger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.nio.file.Files
 
 class FileScanner(
     private val trackRepository: TrackRepository,
@@ -18,7 +19,7 @@ class FileScanner(
         if (!directory.isDirectory) return@withContext 0
 
         val audioFiles = directory.walkTopDown()
-            .filter { it.isFile && it.extension.lowercase() in AUDIO_EXTENSIONS }
+            .filter { it.isFile && isAudioFile(it) }
             .toList()
         val total = audioFiles.size
         onProgress?.invoke(0, total)
@@ -36,7 +37,7 @@ class FileScanner(
 
         var count = 0
         val files = directory.listFiles() ?: return@withContext 0
-        files.filter { it.isFile && it.extension.lowercase() in AUDIO_EXTENSIONS }
+        files.filter { it.isFile && isAudioFile(it) }
             .forEach { file ->
                 if (scanSingleFile(file)) count++
             }
@@ -102,5 +103,15 @@ class FileScanner(
 
     companion object {
         val AUDIO_EXTENSIONS = setOf("mp3", "flac", "ogg", "wav", "aac", "opus", "m4a")
+
+        fun isAudioFile(file: File): Boolean {
+            val ext = file.extension.lowercase()
+            if (ext.isNotEmpty()) return ext in AUDIO_EXTENSIONS
+            return try {
+                Files.probeContentType(file.toPath())?.startsWith("audio/") == true
+            } catch (_: Exception) {
+                false
+            }
+        }
     }
 }

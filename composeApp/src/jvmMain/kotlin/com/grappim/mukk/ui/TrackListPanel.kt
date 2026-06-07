@@ -4,9 +4,11 @@ package com.grappim.mukk.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -66,28 +68,43 @@ fun TrackListPanel(
             )
         }
     } else {
-        LazyColumn(modifier = modifier.fillMaxSize()) {
-            item {
-                TrackListHeader(
-                    columnConfig = columnConfig,
-                    localWidths = localWidths,
-                    onToggleColumn = onToggleColumn,
-                    onColumnWidthChange = { col, w -> localWidths[col] = w },
-                    onColumnWidthCommit = onColumnWidthChange
-                )
+        BoxWithConstraints(modifier = modifier.fillMaxSize()) {
+            val availableWidth = maxWidth
+            val scrollState = rememberScrollState()
+            val minContentWidth = remember(columnConfig.visibleColumns, localWidths) {
+                val cols = columnConfig.visibleColumns
+                val colWidths = cols.sumOf { col -> localWidths[col] ?: col.defaultWidthDp }
+                val dividers = (cols.size - 1) * RESIZE_DIVIDER_WIDTH.value.toInt()
+                val padding = 32 // 16.dp each side
+                (colWidths + dividers + padding).dp
             }
-            items(entries, key = { it.file.absolutePath }) { entry ->
-                val isPlaying = entry.file.absolutePath == currentTrackPath
-                val isSelected = entry.file.absolutePath == selectedTrackPath
-                TrackRow(
-                    entry = entry,
-                    isPlaying = isPlaying,
-                    isSelected = isSelected,
-                    columnConfig = columnConfig,
-                    localWidths = localWidths,
-                    onClick = { onTrackClick(entry) },
-                    onDoubleClick = { onTrackDoubleClick(entry) }
-                )
+            val contentWidth = maxOf(availableWidth, minContentWidth)
+
+            Box(Modifier.fillMaxSize().horizontalScroll(scrollState)) {
+                LazyColumn(modifier = Modifier.width(contentWidth)) {
+                    item {
+                        TrackListHeader(
+                            columnConfig = columnConfig,
+                            localWidths = localWidths,
+                            onToggleColumn = onToggleColumn,
+                            onColumnWidthChange = { col, w -> localWidths[col] = w },
+                            onColumnWidthCommit = onColumnWidthChange
+                        )
+                    }
+                    items(entries, key = { it.file.absolutePath }) { entry ->
+                        val isPlaying = entry.file.absolutePath == currentTrackPath
+                        val isSelected = entry.file.absolutePath == selectedTrackPath
+                        TrackRow(
+                            entry = entry,
+                            isPlaying = isPlaying,
+                            isSelected = isSelected,
+                            columnConfig = columnConfig,
+                            localWidths = localWidths,
+                            onClick = { onTrackClick(entry) },
+                            onDoubleClick = { onTrackDoubleClick(entry) }
+                        )
+                    }
+                }
             }
         }
     }
@@ -162,6 +179,8 @@ private fun TrackListHeader(
                     text = column.label,
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                     modifier = if (isLast) Modifier.weight(1f) else Modifier.width(effectiveWidth.dp)
                 )
                 if (!isLast) {

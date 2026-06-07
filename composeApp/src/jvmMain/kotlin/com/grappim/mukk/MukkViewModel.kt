@@ -489,7 +489,7 @@ class MukkViewModel(
             return
         }
         val audioFiles = dir.walkTopDown()
-            .filter { it.isFile && it.extension.lowercase() in AUDIO_EXTENSIONS }
+            .filter { it.isFile && FileScanner.isAudioFile(it) }
             .toList()
         val entries = audioFiles
             .map { file ->
@@ -511,7 +511,7 @@ class MukkViewModel(
     }
 
     private fun containsAudioFiles(dir: File): Boolean {
-        return dir.walkTopDown().any { it.isFile && it.extension.lowercase() in AUDIO_EXTENSIONS }
+        return dir.walkTopDown().any { it.isFile && FileScanner.isAudioFile(it) }
     }
 
     private suspend fun listDirectoryEntries(path: String): List<FileEntry> {
@@ -521,7 +521,7 @@ class MukkViewModel(
         val children = dir.listFiles() ?: return emptyList()
 
         return children
-            .filter { it.isDirectory || it.extension.lowercase() in AUDIO_EXTENSIONS }
+            .filter { it.isDirectory || FileScanner.isAudioFile(it) }
             .map { file ->
                 val trackData = if (!file.isDirectory) {
                     lookupTrackData(file.absolutePath)
@@ -638,7 +638,5 @@ class MukkViewModel(
         val lyrics: String?
     )
 
-    companion object {
-        private val AUDIO_EXTENSIONS = setOf("mp3", "flac", "ogg", "wav", "aac", "opus", "m4a")
-    }
+    companion object
 }
