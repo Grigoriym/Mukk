@@ -18,6 +18,7 @@ import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.collections.immutable.toPersistentList
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.io.File
@@ -80,6 +81,7 @@ class MukkViewModel(
     private var currentTrackIndex: Int = -1
     private var watcherCollectionJob: Job? = null
     private var waveformJob: Job? = null
+    private val pendingChangedDirs = mutableMapOf<String, Job>()
 
     init {
         audioPlayer.onTrackFinished = { nextTrack() }
@@ -585,6 +587,8 @@ class MukkViewModel(
 
     private fun startWatching(rootPath: String) {
         watcherCollectionJob?.cancel()
+        pendingChangedDirs.values.forEach { it.cancel() }
+        pendingChangedDirs.clear()
         fileSystemWatcher.watch(File(rootPath))
         watcherCollectionJob = viewModelScope.launch {
             fileSystemWatcher.events.collect { event ->
@@ -593,18 +597,25 @@ class MukkViewModel(
         }
     }
 
-    private suspend fun handleFileSystemEvent(event: FileSystemEvent) {
+    private fun handleFileSystemEvent(event: FileSystemEvent) {
         when (event) {
             is FileSystemEvent.AudioFileChanged -> {
-                fileScanner.scanFolder(File(event.directory))
-                loadTracksSync()
-                val selectedPath = _folderTreeState.value.selectedPath
-                if (selectedPath == event.directory) {
-                    loadSelectedFolderEntries(selectedPath)
+                // Debounce per directory: a burst of tag-update events (e.g. a tagger script
+                // rewriting an entire album) collapses into a single scan after the burst ends.
+                pendingChangedDirs[event.directory]?.cancel()
+                pendingChangedDirs[event.directory] = viewModelScope.launch {
+                    delay(1500L)
+                    pendingChangedDirs.remove(event.directory)
+                    fileScanner.scanFolder(File(event.directory))
+                    loadTracksSync()
+                    val selectedPath = _folderTreeState.value.selectedPath
+                    if (selectedPath == event.directory) {
+                        loadSelectedFolderEntries(selectedPath)
+                    }
                 }
             }
 
-            is FileSystemEvent.AudioFileDeleted -> {
+            is FileSystemEvent.AudioFileDeleted -> viewModelScope.launch {
                 fileScanner.removeTrack(event.filePath)
                 loadTracksSync()
                 val selectedPath = _folderTreeState.value.selectedPath
@@ -617,9 +628,7 @@ class MukkViewModel(
                 }
             }
 
-            is FileSystemEvent.DirectoryCreated -> {
-                bumpFolderTreeVersion()
-            }
+            is FileSystemEvent.DirectoryCreated -> bumpFolderTreeVersion()
 
             is FileSystemEvent.DirectoryDeleted -> {
                 val deletedPath = event.directoryPath

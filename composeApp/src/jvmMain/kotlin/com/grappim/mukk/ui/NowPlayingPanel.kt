@@ -8,6 +8,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -129,7 +130,11 @@ fun NowPlayingPanel(
                 )
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(12.dp))
+
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+
+            Spacer(modifier = Modifier.height(12.dp))
 
             // Lyrics
             val scrollState = rememberScrollState()
