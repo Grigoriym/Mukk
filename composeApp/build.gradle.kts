@@ -45,10 +45,10 @@ compose.desktop {
     application {
         mainClass = "${libs.versions.app.pkg.get()}.MainKt"
         jvmArgs += listOf(
-            "-Xmx256m",
+            "-Xmx512m",
             "-Xms64m",
-            "-XX:+UseSerialGC",
-            "-XX:MaxMetaspaceSize=128m",
+            "-XX:+UseG1GC",
+            "-XX:MaxMetaspaceSize=256m",
         )
 
         nativeDistributions {

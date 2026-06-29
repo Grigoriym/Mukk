@@ -11,13 +11,19 @@ object MukkLogger {
     enum class Level { DEBUG, INFO, WARN, ERROR }
 
     private val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS")
-    private val logFile: File
+    private val fileStream: PrintStream?
 
     init {
         val dataDir = File(System.getProperty("user.home"), ".local/share/mukk")
         dataDir.mkdirs()
-        logFile = File(dataDir, "mukk.log")
-        logFile.appendText("--- Mukk started at ${LocalDateTime.now().format(formatter)} ---\n")
+        val logFile = File(dataDir, "mukk.log")
+        if (logFile.length() > 5 * 1024 * 1024) logFile.delete()
+        fileStream = try {
+            PrintStream(FileOutputStream(logFile, true), true)
+        } catch (_: Exception) {
+            null
+        }
+        fileStream?.println("--- Mukk started at ${LocalDateTime.now().format(formatter)} ---")
     }
 
     fun debug(tag: String, message: String) = log(Level.DEBUG, tag, message)
@@ -29,18 +35,14 @@ object MukkLogger {
         val timestamp = LocalDateTime.now().format(formatter)
         val line = "[$timestamp] [${level.name}] [$tag] $message"
 
-        val stream = if (level >= Level.WARN) System.err else System.out
-        stream.println(line)
-        throwable?.printStackTrace(stream)
+        val consoleStream = if (level >= Level.WARN) System.err else System.out
+        consoleStream.println(line)
+        throwable?.printStackTrace(consoleStream)
 
-        try {
-            FileOutputStream(logFile, true).buffered().use { out ->
-                val ps = PrintStream(out)
-                ps.println(line)
-                throwable?.printStackTrace(ps)
-            }
-        } catch (_: Exception) {
-            // Can't write to log file — don't crash the app
+        // Only persist WARN+ to file — DEBUG/INFO on console only to avoid log bloat
+        if (level >= Level.WARN) {
+            fileStream?.println(line)
+            throwable?.printStackTrace(fileStream)
         }
     }
 }
