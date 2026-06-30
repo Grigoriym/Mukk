@@ -22,6 +22,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.io.File
+import kotlin.time.Duration.Companion.milliseconds
 
 class MukkViewModel(
     private val audioPlayer: AudioPlayer,
@@ -82,6 +83,8 @@ class MukkViewModel(
     private var watcherCollectionJob: Job? = null
     private var waveformJob: Job? = null
     private val pendingChangedDirs = mutableMapOf<String, Job>()
+    private val pendingDeletedPaths = mutableSetOf<String>()
+    private var pendingDeleteJob: Job? = null
 
     init {
         audioPlayer.onTrackFinished = { nextTrack() }
@@ -589,6 +592,9 @@ class MukkViewModel(
         watcherCollectionJob?.cancel()
         pendingChangedDirs.values.forEach { it.cancel() }
         pendingChangedDirs.clear()
+        pendingDeleteJob?.cancel()
+        pendingDeleteJob = null
+        pendingDeletedPaths.clear()
         fileSystemWatcher.watch(File(rootPath))
         watcherCollectionJob = viewModelScope.launch {
             fileSystemWatcher.events.collect { event ->
@@ -604,7 +610,7 @@ class MukkViewModel(
                 // rewriting an entire album) collapses into a single scan after the burst ends.
                 pendingChangedDirs[event.directory]?.cancel()
                 pendingChangedDirs[event.directory] = viewModelScope.launch {
-                    delay(1500L)
+                    delay(1500L.milliseconds)
                     pendingChangedDirs.remove(event.directory)
                     fileScanner.scanFolder(File(event.directory))
                     loadTracksSync()
@@ -615,16 +621,24 @@ class MukkViewModel(
                 }
             }
 
-            is FileSystemEvent.AudioFileDeleted -> viewModelScope.launch {
-                fileScanner.removeTrack(event.filePath)
-                loadTracksSync()
-                val selectedPath = _folderTreeState.value.selectedPath
-                if (selectedPath == event.directory) {
-                    loadSelectedFolderEntries(selectedPath)
-                }
-                val currentPath = audioPlayer.state.value.currentTrackPath
-                if (currentPath == event.filePath) {
-                    stop()
+            is FileSystemEvent.AudioFileDeleted -> {
+                // Batch deletes: deleting a folder fires one event per file inside it.
+                // Accumulate paths and process once after the burst ends.
+                pendingDeletedPaths.add(event.filePath)
+                pendingDeleteJob?.cancel()
+                pendingDeleteJob = viewModelScope.launch {
+                    delay(500L.milliseconds)
+                    val paths = pendingDeletedPaths.toSet()
+                    pendingDeletedPaths.clear()
+                    pendingDeleteJob = null
+                    paths.forEach { fileScanner.removeTrack(it) }
+                    loadTracksSync()
+                    val selectedPath = _folderTreeState.value.selectedPath
+                    if (selectedPath != null && paths.any { File(it).parent == selectedPath }) {
+                        loadSelectedFolderEntries(selectedPath)
+                    }
+                    val currentPath = audioPlayer.state.value.currentTrackPath
+                    if (currentPath in paths) stop()
                 }
             }
 

@@ -23,6 +23,8 @@ private val MIN_PANEL_WIDTH = 150.dp
 private val MAX_PANEL_WIDTH = 450.dp
 private val DEFAULT_LEFT_WIDTH = 250.dp
 private val DEFAULT_RIGHT_WIDTH = 280.dp
+private val MIN_LYRICS_HEIGHT = 60.dp
+private val MAX_LYRICS_HEIGHT = 500.dp
 
 @Composable
 fun MainLayout(
@@ -50,6 +52,9 @@ fun MainLayout(
     }
     var rightPanelWidth by remember {
         mutableStateOf(preferencesManager.panelRightWidth.dp)
+    }
+    var lyricsHeight by remember {
+        mutableStateOf(preferencesManager.nowPlayingLyricsHeight.dp)
     }
 
     val density = LocalDensity.current
@@ -109,6 +114,14 @@ fun MainLayout(
                 currentTrack = uiState.currentTrack,
                 albumArt = uiState.currentAlbumArt,
                 lyrics = uiState.currentLyrics,
+                lyricsHeight = lyricsHeight,
+                onLyricsHeightDrag = { deltaPx ->
+                    val deltaDp = with(density) { deltaPx.toDp() }
+                    lyricsHeight = (lyricsHeight - deltaDp).coerceIn(MIN_LYRICS_HEIGHT, MAX_LYRICS_HEIGHT)
+                },
+                onLyricsHeightDragEnd = {
+                    preferencesManager.nowPlayingLyricsHeight = lyricsHeight.value.toInt()
+                },
                 modifier = Modifier.width(rightPanelWidth)
             )
         }

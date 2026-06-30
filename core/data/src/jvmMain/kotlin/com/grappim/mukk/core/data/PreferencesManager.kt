@@ -141,6 +141,10 @@ class PreferencesManager {
         get() = getString("audio.device", "auto")
         set(value) = set("audio.device", value)
 
+    var nowPlayingLyricsHeight: Int
+        get() = getInt("nowplaying.lyricsHeight", 200)
+        set(value) = set("nowplaying.lyricsHeight", value)
+
     // --- Public utility ---
 
     fun clear() {

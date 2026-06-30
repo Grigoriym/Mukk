@@ -13,6 +13,7 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.io.File
 import java.io.IOException
+import java.nio.file.NoSuchFileException
 import java.nio.file.ClosedWatchServiceException
 import java.nio.file.FileSystems
 import java.nio.file.FileVisitResult
@@ -116,12 +117,18 @@ class FileSystemWatcher {
 
     private fun handleCreate(child: Path, dir: Path, ws: WatchService) {
         if (Files.isDirectory(child)) {
-            try {
+            val registered = try {
                 registerRecursive(child, ws)
+                true
+            } catch (e: NoSuchFileException) {
+                // Temp directory disappeared before we could watch it — normal race condition
+                MukkLogger.debug("FileSystemWatcher", "Directory gone before watch registered: $child")
+                false
             } catch (e: IOException) {
                 MukkLogger.warn("FileSystemWatcher", "inotify limit, skipping watch for $child", e)
+                false
             }
-            _events.tryEmit(FileSystemEvent.DirectoryCreated(child.toString()))
+            if (registered) _events.tryEmit(FileSystemEvent.DirectoryCreated(child.toString()))
         } else if (isAudioFile(child)) {
             _events.tryEmit(
                 FileSystemEvent.AudioFileChanged(
@@ -169,6 +176,11 @@ class FileSystemWatcher {
                 } catch (e: IOException) {
                     MukkLogger.warn("FileSystemWatcher", "inotify limit, skipping watch for $dir", e)
                 }
+                return FileVisitResult.CONTINUE
+            }
+
+            override fun visitFileFailed(file: Path, exc: IOException): FileVisitResult {
+                // File disappeared between directory listing and visit — skip silently
                 return FileVisitResult.CONTINUE
             }
         })
