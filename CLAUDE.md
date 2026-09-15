@@ -126,7 +126,7 @@ in SQLite via `WaveformRepository` so repeat plays skip re-decoding.
 - DB access: all Exposed ORM operations go through `TrackRepository` (and `WaveformRepository`, `PlaylistRepository`). Only `core:data` module files import Exposed. When adding new DB operations, add methods to the relevant repository — never use `transaction {}` directly in ViewModel or scanner code.
 - DB location: `~/.local/share/mukk/library.db`
 - Preferences file: `~/.local/share/mukk/preferences.properties`
-- Logging: use `MukkLogger` (`object` singleton, NOT Koin-managed). Use `error`/`warn`/`debug` with `Throwable` to preserve stack traces.
+- Logging: use `MukkLogger` (`object` singleton, NOT Koin-managed). Use `error`/`warn`/`debug` with `Throwable` to preserve stack traces. A JVM-fatal error (`OutOfMemoryError`, a native crash) never reaches `mukk.log` — it's thrown from an uncaught-exception handler or the AWT event thread, outside any `MukkLogger` call, and only shows up in the run command's own stdout/stderr (the `:composeApp:run` console, or its `tee`d log when launched via `run_in_background`).
 - Adding new settings: field in `SettingsState` → update `_settingsState` in ViewModel → persist via `preferencesManager.set()` → restore in `restoreSettings()` → expose in `SettingsDialog.kt`
 - Compose Desktop focus: global key events require `FocusRequester` + `.focusable()` + `LaunchedEffect` to request focus. Without this, `onPreviewKeyEvent` won't fire until the user clicks something.
 
