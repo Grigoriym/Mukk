@@ -19,6 +19,7 @@ import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.collections.immutable.toPersistentList
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -91,6 +92,7 @@ class MukkViewModel(
     private var currentTrackIndex: Int = -1
     private var watcherCollectionJob: Job? = null
     private var waveformJob: Job? = null
+    private var activatePlaylistJob: Job? = null
     private val pendingChangedDirs = mutableMapOf<String, Job>()
     private val pendingDeletedPaths = mutableSetOf<String>()
     private var pendingDeleteJob: Job? = null
@@ -533,7 +535,11 @@ class MukkViewModel(
         _selectedTrackPath.value = null
         saveFolderTreeState()
 
-        viewModelScope.launch {
+        val previousJob = activatePlaylistJob
+        activatePlaylistJob = viewModelScope.launch {
+            // Wait for the previous switch to fully stop, not just request cancellation, so its
+            // non-interruptible bulk DB fetch (findByPathPrefix) never overlaps with this one's.
+            previousJob?.cancelAndJoin()
             _selectedFolderEntries.value = buildCachedEntries(trackRepository.findByPathPrefix(browsePath))
 
             _scanProgress.value = ScanProgress(isScanning = true)

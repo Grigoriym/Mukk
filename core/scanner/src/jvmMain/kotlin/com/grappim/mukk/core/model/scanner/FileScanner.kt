@@ -4,6 +4,7 @@ import com.grappim.mukk.core.data.TrackRepository
 import com.grappim.mukk.core.model.MediaTrackData
 import com.grappim.mukk.core.model.MukkLogger
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.nio.file.Files
@@ -30,6 +31,7 @@ class FileScanner(
 
         var count = 0
         audioFiles.forEachIndexed { index, file ->
+            ensureActive()
             if (scanSingleFile(file, existingByPath[file.absolutePath])) count++
             onProgress?.invoke(index + 1, total)
         }

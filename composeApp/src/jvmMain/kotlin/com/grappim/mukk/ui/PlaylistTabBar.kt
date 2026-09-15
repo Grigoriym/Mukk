@@ -24,6 +24,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -53,6 +54,7 @@ import kotlinx.collections.immutable.ImmutableList
 import kotlin.math.roundToInt
 
 private const val DOUBLE_CLICK_WINDOW_MS = 300L
+private const val SELECT_DEBOUNCE_MS = 300L
 private const val DRAG_START_THRESHOLD_PX = 8f
 private val TAB_MAX_WIDTH = 160.dp
 
@@ -73,6 +75,9 @@ fun PlaylistTabBar(
     var draggingId by remember { mutableStateOf<Long?>(null) }
     var dragOffsetX by remember { mutableFloatStateOf(0f) }
     val tabWidths = remember { mutableStateMapOf<Long, Int>() }
+    // Debounced: each switch triggers a full folder scan, so rapid clicks would otherwise stack
+    // up multiple concurrent scans of a large playlist's folder.
+    var lastSelectTime by remember { mutableLongStateOf(0L) }
 
     Row(
         modifier = modifier
@@ -86,7 +91,13 @@ fun PlaylistTabBar(
                 playlist = playlist,
                 isActive = playlist.id == activePlaylistId,
                 dragOffsetX = if (playlist.id == draggingId) dragOffsetX else 0f,
-                onClick = { if (playlist.id != activePlaylistId) onSelectPlaylist(playlist.id) },
+                onClick = {
+                    val now = System.currentTimeMillis()
+                    if (playlist.id != activePlaylistId && now - lastSelectTime >= SELECT_DEBOUNCE_MS) {
+                        lastSelectTime = now
+                        onSelectPlaylist(playlist.id)
+                    }
+                },
                 onRename = { newName -> onRenamePlaylist(playlist.id, newName) },
                 onClose = { onDeletePlaylist(playlist.id) },
                 onWidthChange = { widthPx -> tabWidths[playlist.id] = widthPx },

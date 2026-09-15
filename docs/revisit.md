@@ -2,32 +2,6 @@
 
 Real problems noticed outside the task at hand — not fixed inline, not dropped.
 
-## Rapid playlist-tab switching OOMs the app
-
-Reproduced 2026-09-15 while manually verifying
-`docs/issues/2026-09-15-playlist-switch-lag.md` Part 1: clicking between two playlist tabs several
-times in quick succession (one of them the ~50k-file "Default" library) crashed the whole JVM.
-`~/.local/share/mukk/mukk.log` and the `:composeApp:run` console both end in
-`java.lang.OutOfMemoryError: Java heap space`, thrown from the AWT event thread, a `TimerQueue`
-uncaught-exception handler, and a `DefaultDispatcher-worker` running
-`FileScanner.scan()` (`FileScanner.kt:29`) — i.e. it happened mid-scan, not on startup.
-
-`MukkViewModel.activatePlaylist()` (`MukkViewModel.kt:548-572`) does
-`viewModelScope.launch { ... trackRepository.findByPathPrefix(...); fileScanner.scan(...); ... }`
-on every call with no job stored or cancelled. Contrast `waveformJob`/`watcherCollectionJob`
-(`MukkViewModel.kt:93, 231-232, 638-640`), which are explicitly cancelled before starting a
-replacement. Each rapid tab click starts a fully independent coroutine that walks the folder,
-holds its own `List<FileEntry>` (or `List<MediaTrackData>` for large folders), and runs
-`fileScanner.scan()` concurrently with the others — clicking through several tabs in a few seconds
-can have multiple ~50k-entry scans alive in the heap at once, on a JVM started with `-Xmx512m`
-(`composeApp/build.gradle.kts` run config). Not introduced by Part 1's change (which only swaps
-what the *second* walk does inside that same unguarded coroutine) — this is pre-existing in
-`activatePlaylist()`'s launch itself.
-
-Worth a decision: store the returned `Job` from `activatePlaylist()`'s `launch` and `cancel()` any
-in-flight one before starting a new one (same pattern as `waveformJob`), so a rapid run of clicks
-only keeps the latest switch's work alive.
-
 ## Active playlist tab reads as the inactive one
 
 Reported 2026-09-15 by the user while manually verifying
