@@ -23,45 +23,74 @@
 - Main class: `com.grappim.mukk.MainKt`
 
 ## Project Structure
-- `composeApp/` — main module (Compose Desktop app)
-- Source sets: `jvmMain` for desktop-specific code
-- All source under `composeApp/src/jvmMain/kotlin/com/grappim/mukk/`
+Gradle multi-module: `composeApp` (UI + ViewModel + DI wiring) depends on four `core:*`
+library modules that hold the non-UI logic. Module boundaries are enforced by what each
+`build.gradle.kts` declares as a dependency — see `settings.gradle.kts` for the module list.
+
+- `composeApp/` — Compose Desktop app: entry point, root composable, ViewModel, all `ui/`
+- `core:model/` — shared data classes/enums (`commonMain`) + `MukkLogger` (`jvmMain`); no
+  Exposed, no GStreamer, no JAudioTagger — the dependency-free layer everything else builds on
+- `core:data/` — SQLite/Exposed persistence (`TrackRepository`, `WaveformRepository`,
+  `DatabaseInit`) + `PreferencesManager`; the only module that imports Exposed
+- `core:player/` — `AudioPlayer` (GStreamer `PlayBin` wrapper) + `WaveformExtractor`
+- `core:scanner/` — `FileScanner`, `FileSystemWatcher`, `MetadataReader` (JAudioTagger)
 
 ### Source Layout
 ```
-com/grappim/mukk/
-├── main.kt                  # Entry point: startKoin, window setup, AudioPlayer dispose
+composeApp/src/jvmMain/kotlin/com/grappim/mukk/
+├── main.kt                  # Entry point: SingleInstance check, startKoin, window setup, AudioPlayer dispose
 ├── App.kt                   # Root composable: koinViewModel, koinInject, collects state, file picker
-├── MukkLogger.kt            # Centralized logging: object singleton, console + file output
+├── SingleInstance.kt        # Single-instance lock; relaunch focuses the existing window instead of opening a second one
 ├── MukkViewModel.kt         # Central ViewModel: folder tree state, playback, track selection
+├── MukkUiState.kt           # Consolidated UI state combined from folder/playback/settings flows
 ├── di/
 │   └── AppModule.kt         # Koin module: singletons + viewModel factory
-├── data/
-│   ├── DatabaseInit.kt      # SQLite connection + schema creation (~/.local/share/mukk/library.db)
-│   ├── MediaTracks.kt       # Exposed table definition
-│   ├── MediaTrackEntity.kt  # Exposed entity + MediaTrackData data class + toData()
-│   ├── TrackRepository.kt   # DB operations: getAllTracks, findByPath, existsByPath, insertIfAbsent, deleteByPath, deleteAll
-│   ├── FileBrowserState.kt  # FileEntry + FolderTreeState data classes
-│   ├── SettingsState.kt     # RepeatMode enum, AudioDeviceInfo, SettingsState data class
-│   └── PreferencesManager.kt # Simple key-value prefs (~/.local/share/mukk/preferences.properties)
-├── player/
-│   ├── AudioPlayer.kt       # GStreamer PlayBin wrapper with position polling + device enumeration/selection
-│   └── PlaybackState.kt     # PlaybackState data class + Status enum
-├── scanner/
-│   ├── FileScanner.kt       # Recursive directory scanner, delegates DB ops to TrackRepository
-│   ├── FileSystemWatcher.kt # WatchService wrapper: real-time filesystem monitoring, emits FileSystemEvents
-│   └── MetadataReader.kt    # JAudioTagger wrapper: AudioMetadata, readAlbumArt(), readLyrics()
+├── model/
+│   └── TreeItem.kt          # Flattened folder-tree row model for FolderTreePanel
+├── utils/
+│   └── Formatting.kt        # Shared formatting helpers (e.g. time display)
 └── ui/
     ├── MukkTheme.kt         # Material3 dark color scheme
-    ├── MainLayout.kt        # Top-level layout: FolderTree | TrackList | NowPlayingPanel / TransportBar
-    ├── SettingsDialog.kt    # Settings modal: audio output, playback (repeat/shuffle), library management
-    ├── NowPlayingPanel.kt   # Album art, metadata, scrollable lyrics for current track
+    ├── MainLayout.kt        # Top-level layout: FolderTree | TrackList | NowPlayingPanel / TransportBar; draggable dividers
+    ├── SettingsDialog.kt    # Settings modal: audio output, playback (repeat/shuffle/resume), library management
+    ├── NowPlayingPanel.kt   # Album art, metadata, resizable scrollable lyrics for current track
     ├── FolderTreePanel.kt   # Expandable folder tree with "Mukk" header + settings/open folder buttons
     ├── TrackListPanel.kt    # Columnar track list (#, File Name, Title, Album, Artist, Duration)
-    ├── TransportBar.kt      # Play/pause/stop/skip, seek bar, volume, track info
+    ├── TransportBar.kt      # Play/pause/stop/skip, waveform seek bar, volume, track info
     └── components/
-        ├── SeekBar.kt       # Seek slider with time labels + formatTime() helper
-        └── VolumeControl.kt # Volume slider with icon
+        ├── SeekBar.kt                    # Seek slider with time labels + formatTime() helper
+        ├── WaveformSeekBar.kt            # Seek bar rendered over the track's waveform peaks
+        ├── VolumeControl.kt              # Volume slider with icon
+        ├── InstantClickable.kt           # Click modifier that fires on press, not release
+        └── TrackContextDropdownMenu.kt   # Right-click menu: copy path, copy file, open location
+
+core/model/src/commonMain/kotlin/com/grappim/mukk/core/model/
+├── FolderTreeState.kt, FileEntry.kt, MediaTrackData.kt, PlaybackState.kt, PlaybackStatus.kt
+├── SettingsState.kt      # RepeatMode, ResumeMode enums, AudioDeviceInfo, SettingsState data class
+├── ScanProgress.kt, TrackListColumn.kt, AudioMetadata.kt, Playlist.kt
+core/model/src/jvmMain/kotlin/com/grappim/mukk/core/model/
+└── MukkLogger.kt          # Centralized logging: object singleton, console + file output
+
+core/data/src/jvmMain/kotlin/com/grappim/mukk/core/data/
+├── DatabaseInit.kt        # SQLite connection + schema creation; takes an optional `dbFile`
+│                            (defaults to ~/.local/share/mukk/library.db) so tests can point it elsewhere
+├── MediaTracks.kt, MediaTrackEntity.kt   # Exposed table + entity + MediaTrackData.toData()
+├── TrackRepository.kt     # DB ops: getAllTracks, findByPath, existsByPath, insertIfAbsent, deleteByPath, deleteAll, findByPathPrefix, deleteByPathPrefix
+├── WaveformCacheTable.kt, WaveformCacheEntity.kt, WaveformRepository.kt  # cached waveform peaks per track; also deleteByPathPrefix
+├── PlaylistsTable.kt, PlaylistEntity.kt, PlaylistRepository.kt  # named, saved folder links (see docs/issues/2026-09-15-playlists-and-queue.md)
+└── PreferencesManager.kt  # Simple key-value prefs (~/.local/share/mukk/preferences.properties)
+
+core/data/src/jvmTest/kotlin/com/grappim/mukk/core/data/
+└── PlaylistRepositoryTest.kt  # first test in the repo; `./gradlew :core:data:jvmTest`
+
+core/player/src/jvmMain/kotlin/com/grappim/mukk/core/model/player/
+├── AudioPlayer.kt         # GStreamer PlayBin wrapper: position polling, device enumeration/selection
+└── WaveformExtractor.kt   # Decodes a track to peak data for WaveformSeekBar
+
+core/scanner/src/jvmMain/kotlin/com/grappim/mukk/core/model/scanner/
+├── FileScanner.kt         # Recursive directory scanner, delegates DB ops to TrackRepository
+├── FileSystemWatcher.kt   # WatchService wrapper: real-time filesystem monitoring, emits FileSystemEvents
+└── MetadataReader.kt      # JAudioTagger wrapper: AudioMetadata, readAlbumArt(), readLyrics()
 ```
 
 ## UI Architecture — Three-Panel Layout
@@ -69,9 +98,13 @@ Three panels side by side, with a transport bar at the bottom:
 
 1. **Folder Tree** (`FolderTreePanel`, default 250dp, resizable 150–450dp) — expandable tree showing only folders that contain audio files (recursively). Header has "Mukk" title + open folder button. Single-click = select folder (shows tracks), double-click = expand/collapse children. Arrow icon also toggles expand. Playing folder gets subtle highlight + play indicator.
 2. **Track List** (`TrackListPanel`, fills remaining space) — columnar table of audio files from the selected folder. Columns: #, File Name, Title, Album, Artist, Duration. Single-click = select/highlight track, double-click = play. Three visual states: playing (primary), selected (surfaceVariant), default.
-3. **Now-Playing Panel** (`NowPlayingPanel`, default 280dp, resizable 150–450dp) — shows album art (square, rounded corners, placeholder music icon when missing), track metadata (title, artist, album, genre + year), and scrollable lyrics. Album art and lyrics read on-the-fly from audio files via `MetadataReader.readAlbumArt()` / `readLyrics()` when playback starts. Shows "No track playing" placeholder when idle.
+3. **Now-Playing Panel** (`NowPlayingPanel`, default 280dp, resizable 150–450dp) — shows album art (square, rounded corners, placeholder music icon when missing), track metadata (title, artist, album, genre + year), and a scrollable lyrics area with its own draggable height (`nowplaying.lyricsHeight`). Album art and lyrics read on-the-fly from audio files via `MetadataReader.readAlbumArt()` / `readLyrics()` when playback starts. Shows "No track playing" placeholder when idle.
 
-Panel dividers are draggable (`DraggableDivider` in MainLayout.kt) with `E_RESIZE_CURSOR` hover icon. Widths persist to PreferencesManager (`panel.leftWidth`, `panel.rightWidth`).
+Panel dividers are draggable (`DraggableDivider` in MainLayout.kt) with `E_RESIZE_CURSOR` hover icon. Widths persist to PreferencesManager (`panel.leftWidth`, `panel.rightWidth`, `nowplaying.lyricsHeight`).
+
+The transport bar's seek control (`WaveformSeekBar`) draws the track's decoded waveform peaks
+behind the seek position; peaks are extracted once per track (`WaveformExtractor`) and cached
+in SQLite via `WaveformRepository` so repeat plays skip re-decoding.
 
 ## Key State Models
 - **`FolderTreeState`** — `rootPath`, `expandedPaths: Set<String>`, `selectedPath`
@@ -90,7 +123,7 @@ Panel dividers are draggable (`DraggableDivider` in MainLayout.kt) with `E_RESIZ
 - `getSubfolders()` is passed as a callback to FolderTreePanel and called inside `remember{}` — synchronous file I/O, memoized on `expandedPaths` changes
 - Native file picker: tries zenity → kdialog → Swing JFileChooser fallback
 - `combinedClickable` (from `ExperimentalFoundationApi`) used in both `FolderTreePanel` and `TrackListPanel` for single/double-click differentiation
-- DB access: all Exposed ORM operations go through `TrackRepository`. Only `data/` package files import Exposed. When adding new DB operations, add methods to `TrackRepository` — never use `transaction {}` directly in ViewModel or scanner code.
+- DB access: all Exposed ORM operations go through `TrackRepository` (and `WaveformRepository`, `PlaylistRepository`). Only `core:data` module files import Exposed. When adding new DB operations, add methods to the relevant repository — never use `transaction {}` directly in ViewModel or scanner code.
 - DB location: `~/.local/share/mukk/library.db`
 - Preferences file: `~/.local/share/mukk/preferences.properties`
 - Logging: use `MukkLogger` (`object` singleton, NOT Koin-managed). Use `error`/`warn`/`debug` with `Throwable` to preserve stack traces.
@@ -100,14 +133,16 @@ Panel dividers are draggable (`DraggableDivider` in MainLayout.kt) with `E_RESIZ
 ## Build Commands
 - Compile check: `./gradlew composeApp:jvmMainClasses` (NOT `composeApp:classes` — that task doesn't exist)
 - Lint: `./gradlew detekt` — wired into `check` for every module. Pre-existing findings are grandfathered per-module in `config/detekt/baseline/*.xml`; only new findings fail the build. Regenerate a module's baseline after deliberately accepting new findings: `./gradlew :module:path:detektBaseline`.
+- Tests: `./gradlew :core:data:jvmTest` — only `core:data` has a `jvmTest` source set so far (added for `PlaylistRepository`); other modules have none yet.
 
 ## Gotchas & Import Paths
 
 ### Exposed ORM v1
-- Critical imports differ from pre-v1: `deleteAll` → `org.jetbrains.exposed.v1.jdbc.deleteAll`, `eq` → `org.jetbrains.exposed.v1.core.eq`, `transaction` → `org.jetbrains.exposed.v1.jdbc.transactions.transaction`
+- Critical imports differ from pre-v1: `deleteAll` → `org.jetbrains.exposed.v1.jdbc.deleteAll`, `eq` → `org.jetbrains.exposed.v1.core.eq`, `like` → `org.jetbrains.exposed.v1.core.like`, `deleteWhere` → `org.jetbrains.exposed.v1.jdbc.deleteWhere`, `transaction` → `org.jetbrains.exposed.v1.jdbc.transactions.transaction`
 - `transaction()` return type inference can fail — may need explicit type parameter
-- `SqlExpressionBuilder.eq` needs explicit import for `find()` queries
+- `SqlExpressionBuilder.eq`/`.like` need explicit import for `find()` queries; `deleteWhere` is the bulk-delete-by-predicate sibling of `deleteAll`, for deleting by a column condition instead of clearing a whole table
 - `EntityClass.new {}` lambda properties should use `this.` prefix to disambiguate
+- `core:data`'s `jvmMain` never declares `kotlinx-coroutines-core` itself — it arrives transitively via Exposed. `TrackRepository`/`WaveformRepository`/`PlaylistRepository`'s `withContext(Dispatchers.IO)` calls rely on that; swapping out Exposed would silently break coroutine usage until it's added explicitly
 
 ### Koin Imports
 - `viewModel{}` DSL: `org.koin.core.module.dsl.viewModel`
@@ -135,7 +170,7 @@ Panel dividers are draggable (`DraggableDivider` in MainLayout.kt) with `E_RESIZ
 - Prefer `kotlinx-collections-immutable` (`ImmutableList`, `persistentListOf()`) over `List`/`MutableList` in state classes and Composable parameters for stable recomposition
 
 ## Dependency Injection (Koin)
-All dependencies are wired via Koin in `di/AppModule.kt`. `DatabaseInit`, `PreferencesManager`, `MetadataReader`, `TrackRepository`, `FileScanner`, `AudioPlayer` are `single{}` singletons. `MukkViewModel` is registered via `viewModel{}`. `main.kt` calls `startKoin` before the Compose window. `App.kt` retrieves `MukkViewModel` via `koinViewModel()` and `PreferencesManager` via `koinInject()`. When adding a new service: create the class → register in `appModule` → inject via constructor (for non-Compose code) or `koinInject()` (for composables).
+All dependencies are wired via Koin in `di/AppModule.kt`. `DatabaseInit`, `PreferencesManager`, `MetadataReader`, `TrackRepository`, `WaveformRepository`, `PlaylistRepository`, `FileScanner`, `AudioPlayer`, `FileSystemWatcher`, `WaveformExtractor` are `single{}` singletons. `MukkViewModel` is registered via `viewModel{}`. `main.kt` calls `startKoin` before the Compose window. `App.kt` retrieves `MukkViewModel` via `koinViewModel()` and `PreferencesManager` via `koinInject()`. When adding a new service: create the class → register in `appModule` → inject via constructor (for non-Compose code) or `koinInject()` (for composables).
 
 ## Callback Flow
 ViewModel exposes functions + StateFlows → `App.kt` collects state via `collectAsState()` and passes lambdas → `MainLayout` forwards to child panels. All UI composables are stateless — they receive data and callbacks as parameters. When adding a new action: add function to ViewModel → wire lambda in App.kt → thread through MainLayout → use in target panel.
@@ -153,9 +188,15 @@ ViewModel exposes functions + StateFlows → `App.kt` collects state via `collec
 | `panel.leftWidth` | Int | `250` | MainLayout |
 | `panel.rightWidth` | Int | `280` | MainLayout |
 | `trackList.columns` | String | `""` | MukkViewModel (`\|`-delimited enum names) |
+| `trackList.columnWidths` | String | `""` | MukkViewModel (`\|`-delimited `ENUM=width` pairs) |
 | `playback.repeatMode` | String | `"OFF"` | MukkViewModel (RepeatMode enum name) |
 | `playback.shuffle` | String | `"false"` | MukkViewModel |
+| `playback.resumeMode` | String | `"PAUSED"` | MukkViewModel (ResumeMode enum name) |
+| `playback.positionMs` | Long | `0` | main.kt (saved on window close, for resume-on-startup) |
+| `playback.durationMs` | Long | `0` | main.kt (saved on window close, for resume-on-startup) |
+| `playback.wasPlaying` | Boolean | `false` | main.kt (saved on window close, for resume-on-startup) |
 | `audio.device` | String | `"auto"` | MukkViewModel |
+| `nowplaying.lyricsHeight` | Int | `200` | MainLayout |
 
 ## Completed Features
 - Media library scanner (recursive, JAudioTagger tags, SQLite storage)
@@ -179,6 +220,10 @@ ViewModel exposes functions + StateFlows → `App.kt` collects state via `collec
 - Settings dialog (audio output, repeat/shuffle, library management)
 - Centralized logging (`MukkLogger`)
 - Tag change detection (re-reads metadata when file modified time is newer)
+- Waveform seek bar (peaks extracted per track, cached in SQLite via `WaveformRepository`)
+- Resume playback across restarts (position/duration/was-playing persisted on window close; `ResumeMode` PAUSED/PLAYING setting controls whether it auto-resumes playing)
+- Single-instance app lock: relaunching focuses the existing window instead of opening a second one (`SingleInstance.kt`)
+- Multi-module split: non-UI logic lives in `core:model`/`core:data`/`core:player`/`core:scanner`; `composeApp` holds only UI + ViewModel + DI wiring
 
 ## What this file is not
 
@@ -186,6 +231,9 @@ ViewModel exposes functions + StateFlows → `App.kt` collects state via `collec
 restated here is a second copy free to drift from the first, and it will.
 
 - Versions → `gradle/libs.versions.toml` (Gradle itself → `gradle/wrapper/gradle-wrapper.properties`)
+- Status/progress of an in-flight feature or fix → that feature's own `docs/issues/*.md`
+  `Status` field and its `### Part N` checkboxes (see "How work happens here" below) — never
+  restated here or in chat as the record of how far something got.
 
 **Not a growing catalogue, either.** A convention that fits in a sentence or two, with at most
 one example, belongs here. The moment a rule starts accumulating dated, confirmed cases or a
@@ -210,6 +258,42 @@ Consequences worth knowing before touching one:
 - **Never edit a shared skill for a fact about this project.** A Mukk-specific fact belongs in
   this file, not in the skill itself.
 - A stale in-repo copy of a shared skill would silently shadow the real one — don't create one.
+
+## How work happens here
+
+Every non-trivial feature or fix goes through the **`investigate-issue`** skill first:
+evidence-based findings, options with real tradeoffs, a recommendation — written to
+`docs/issues/<date-or-issue>-<slug>.md`, not decided in chat. Implementation never starts
+before that doc's `Status` says `Approved`.
+
+Once approved, the doc carries an **Implementation plan**: numbered, independently-shippable
+`### Part N` sections, each with its own `Verify:` line (a Gradle task, or an explicit manual
+check in the running app when nothing else can prove it). Each part marks itself `[ ]` when
+written and `[x]` once landed, with a one-line `Landed:` note for anything that deviated from
+the plan — the same doc is both the plan and the only progress record; nothing is duplicated
+here or in memory.
+
+**One part per session.** A session that finishes a part does not chain into the next one —
+say what landed and stop; the next part starts in a fresh session. This is deliberate, not a
+context-budget accident: the doc is written so a session with zero memory of the planning
+conversation can pick up any single part cold.
+
+**When told to proceed with no more detail than that** ("let's proceed with the task", "do
+the next part," etc.):
+
+1. Find `docs/issues/*.md` doc(s) with `Status: Approved` or `Status: In progress` that still
+   have an unchecked `### Part N`. Exactly one such part across all docs → do that one. More
+   than one candidate → ask which, don't guess.
+2. Do exactly what that part describes — nothing from a later part, nothing outside it.
+3. Run its `Verify:` line. If it's a manual, in-app check, say so explicitly and ask the user
+   to confirm it rather than assuming it passed.
+4. Tick the part, add a `Landed:` note if anything deviated, and update the doc's `Status`
+   (`In progress`, or `Done` once the last part lands).
+5. Close out per "Close-out" below.
+
+Don't start a part whose earlier parts in the same doc aren't ticked yet, and don't widen a
+part's scope because a nearby improvement is tempting — that's a new doc, or a note in this
+one, not scope creep on the part in flight.
 
 ## Close-out
 
@@ -391,9 +475,13 @@ from them.
 - `../agentic-grappim` — shared skills/agents source, and the `templates/CLAUDE.md.template`
   this section was ported from.
 - `../wallosmobile` — the guardrails CI mechanism (`.github/workflows/guardrails.yml`,
-  `.github/scripts/check-guardrails.sh`) this was adapted from. Its `detekt.yml` and
-  `Non-negotiables`/`CHECKLIST.md` tripwires are Android/multi-module-specific and were **not**
-  ported wholesale — see Settled decisions above.
+  `.github/scripts/check-guardrails.sh`) this was adapted from, and the
+  session-per-unit-of-work discipline its "How work happens here" section describes. Its
+  `detekt.yml` and `Non-negotiables`/`CHECKLIST.md` tripwires are Android/multi-module-specific
+  and were **not** ported wholesale — see Settled decisions above. Mukk has no single
+  `CHECKLIST.md`; each `docs/issues/*.md` doc is its own self-contained plan and progress
+  record instead (see "How work happens here" above), since work here is a series of
+  independent features/fixes rather than one long numbered build-out.
 
 **Trust their code over their docs.** Another project's `CLAUDE.md` can contradict its own
 implementation. Note a drift here when you find one.
