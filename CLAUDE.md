@@ -158,6 +158,14 @@ in SQLite via `WaveformRepository` so repeat plays skip re-decoding.
 - `Icons.Filled.VolumeUp` is deprecated — use `Icons.AutoMirrored.Filled.VolumeUp`
 - `MenuAnchorType` is deprecated — use `ExposedDropdownMenuAnchorType`
 - Material Icons Extended: `compose.materialIconsExtended` in JetBrains compose plugin DSL, add to `jvmMain.dependencies`
+- Never key a custom `Modifier.pointerInput(key1, ...)` gesture detector on inline callback
+  lambdas (`pointerInput(onClick, onDoubleClick) { ... }`). If any of those callbacks trigger a
+  state change that recomposes the caller (e.g. a drag callback that updates drag-offset state),
+  the recreated lambda changes the key and Compose restarts the gesture coroutine mid-gesture —
+  silently swallowing the eventual pointer-up before an `onDragEnd`-style callback ever fires.
+  Key on a stable value (`Unit`, or a stable id) instead, and read the latest callbacks inside the
+  gesture block via `rememberUpdatedState`. Found in `PlaylistTabBar.kt`'s drag-to-reorder: it
+  visually reordered tabs but the reorder was never persisted, because `onDragEnd` never ran.
 
 ### GStreamer Device API
 - Device enumeration: `DeviceMonitor` from `org.freedesktop.gstreamer.device`
