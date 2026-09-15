@@ -1,6 +1,8 @@
 # 2026-09-15 — Introduce a release process and require PRs for all work
 
-**Status:** In progress
+**Status:** Done — v1.0.2 shipped end-to-end (`release-prepare` PR → `release-finalize` tag →
+`release.yml` GitHub Release); tag-push auto-trigger fix (`RELEASE_PAT`) still wants one more
+real release to confirm it fires without a manual `workflow_dispatch` fallback
 **Link:** none (feature request, not a bug) — reference implementation at
 `../TaigaMobileNova/.github/workflows/{release,release-prepare,release-finalize}.yml`
 **Updated:** 2026-09-15
@@ -264,13 +266,19 @@ policy in CLAUDE.md, no ruleset change).
 - On `pull_request` `closed`+merged from a `release/v*` branch into `master`: tag `vX.Y.Z` and
   push. No back-merge step (Option D1).
 - **Verify:** manual — merge a real release PR once Part 3 exists and confirm the tag appears.
-- **Landed:** as planned. No back-merge step, and — because that was the only reason
-  TaigaMobileNova's version needs an admin `RELEASE_PAT` (pushing to `dev`, which has its own
-  branch protection) — this one needs no such secret: tag refs (`refs/tags/*`) aren't covered by
-  the `master` ruleset (`include: ["refs/heads/master"]`), so the default `GITHUB_TOKEN` with
-  `contents: write` can push the tag directly. End-to-end verification (merge a real
-  `release/v*` PR, confirm the tag appears) is deferred to Part 5's own manual check, since a tag
-  with no `release.yml` listening for it yet has nothing to confirm beyond "the tag exists."
+- **Landed:** as planned, then corrected after the real v1.0.2 release exposed a gap. The
+  original claim — "the default `GITHUB_TOKEN` can push the tag directly because tag refs aren't
+  covered by the `master` ruleset" — is true but incomplete: it's *permitted* to push, but a push
+  made with `GITHUB_TOKEN` never triggers another workflow's `on: push` (GitHub's built-in
+  anti-recursion rule, separate from and not mentioned by the branch-protection ruleset finding
+  this reasoning was based on). Confirmed empirically: `release-finalize` tagged `v1.0.2`
+  successfully, but `release.yml`'s tag-push trigger never fired — only its `workflow_dispatch`
+  fallback (Option C2) did, manually. Fixed by checking out with a `RELEASE_PAT` secret (a real
+  user PAT, fine-grained, `Contents: Read and write` on this repo only) instead of the default
+  token — same mechanism TaigaMobileNova uses for its `dev` push, but here for triggering
+  `release.yml` rather than for branch-protection permission. End-to-end verification (merge a
+  real `release/v*` PR, confirm the tag appears *and* `release.yml` fires from the push alone,
+  no manual dispatch) is still pending against a future release now that the fix has landed.
 
 ### Part 5 — `.github/workflows/release.yml` [x]
 - Trigger on tag push or `workflow_dispatch` with a tag input (Option C2). Install
@@ -285,9 +293,11 @@ policy in CLAUDE.md, no ruleset change).
   Dropped `preserve_order: true` from the reference `action-gh-release` config — that input
   orders release notes against a multi-artifact APK/AAB/bundle list this repo doesn't have,
   nothing to preserve order over with just deb+rpm.
-  End-to-end manual verification (real tag push or `workflow_dispatch`, confirm a GitHub Release
-  appears with both artifacts) is still pending — do it once this PR merges to `master`, since a
-  tag pushed from a branch won't trigger release.yml until the workflow file exists there.
+  Verified against a real release: v1.0.2 (`gh workflow run release.yml -f tag=v1.0.2`, after the
+  tag-push trigger didn't fire — see Part 4's corrected Landed note) built and published
+  https://github.com/Grigoriym/Mukk/releases/tag/v1.0.2 with both `mukk_1.0.2_amd64.deb` and
+  `mukk-1.0.2-1.x86_64.rpm` attached. `workflow_dispatch` itself works correctly; only the
+  tag-push path needed the Part 4 fix.
 
 Each part is independently landable and each guardrails-tripping commit needs the
 `Gate-change:` trailer per Finding 6.
