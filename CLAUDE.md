@@ -99,6 +99,7 @@ Panel dividers are draggable (`DraggableDivider` in MainLayout.kt) with `E_RESIZ
 
 ## Build Commands
 - Compile check: `./gradlew composeApp:jvmMainClasses` (NOT `composeApp:classes` — that task doesn't exist)
+- Lint: `./gradlew detekt` — wired into `check` for every module. Pre-existing findings are grandfathered per-module in `config/detekt/baseline/*.xml`; only new findings fail the build. Regenerate a module's baseline after deliberately accepting new findings: `./gradlew :module:path:detektBaseline`.
 
 ## Gotchas & Import Paths
 
@@ -176,11 +177,107 @@ ViewModel exposes functions + StateFlows → `App.kt` collects state via `collec
 - Centralized logging (`MukkLogger`)
 - Tag change detection (re-reads metadata when file modified time is newer)
 
-## Behavioral Guidelines
+## What this file is not
+
+**Point, don't copy.** Where another file owns a fact, link it and stop. A version number
+restated here is a second copy free to drift from the first, and it will.
+
+- Versions → `gradle/libs.versions.toml` (the **Tech Stack** section above names versions in
+  prose for orientation; treat the catalog as the source of truth if the two ever disagree)
+
+**Not a growing catalogue, either.** A convention that fits in a sentence or two, with at most
+one example, belongs here. The moment a rule starts accumulating dated, confirmed cases or a
+worked-example script, it has become reference material earned by a specific investigation, not
+a day-to-day rule every session needs to read — split it into its own doc under `docs/` and
+leave a one-line pointer where the rule used to live.
+
+## Shared skills and agents
+
+Skills live in the **`agentic-grappim`** repo (a sibling checkout at `../agentic-grappim`) and
+are symlinked into this repo's own `.claude/skills/` — **per clone, not per machine**, unlike
+other `grappim` projects that wire them into `~/.claude/skills/` instead. Cloning Mukk elsewhere
+needs `agentic-grappim` checked out as a sibling directory for the symlinks to resolve.
+
+This project uses: `finalize`, `investigate-issue`, `update-gradle-wrapper`, `adversarial-review`,
+`bro`, `compose-stability-audit`. All shared — `.claude/agents/` holds none of its own.
+
+Consequences worth knowing before touching one:
+
+- **An edit there changes behaviour in every project that symlinks it**, not just Mukk. That is
+  the point of the repo, not a hazard — but it has to be committed in `agentic-grappim`, not here.
+- **Never edit a shared skill for a fact about this project.** A Mukk-specific fact belongs in
+  this file, not in the skill itself.
+- A stale in-repo copy of a shared skill would silently shadow the real one — don't create one.
+
+## Close-out
+
+At the end of each session that changed code, without being asked:
+
+1. Run the **`/finalize` skill** — the work almost always taught something the plan didn't know,
+   and this is where it gets written down instead of dying with the context.
+2. **Check the docs for claims the work just made false.** Grep for what changed rather than
+   trusting a read-through.
+3. One commit per logical change, with a plain-English subject line.
+
+## Changing a check means saying so
+
+The gate (`detekt`, CI) constrains the code a session writes; nothing constrains a session from
+widening it so its own change passes. `.github/workflows/guardrails.yml` doesn't prevent that —
+it makes it impossible to do quietly. A commit trips it by touching `.github/`, `build-logic/`,
+or `config/detekt/`; by touching `gradle/libs.versions.toml`'s `detekt` or `composeRules` version
+keys specifically (an ordinary dependency bump on `kotlin`, `koin`, `exposed`, etc. doesn't trip
+it); or by adding an `@Ignore` or a `@Suppress`. Any of those needs a line in the commit message:
+
+```
+Gate-change: what was widened, and why
+```
+
+That is an opt-in, not a veto — widening a gate is often right. Run it before committing:
+`.github/scripts/check-guardrails.sh HEAD~1..HEAD`.
+
+## Verification
+
+**"Done" means the relevant check ran and passed.** If it didn't run, say that instead.
+
+- **A narrow pass proves your change works, not that you broke nothing.** When a failure shows
+  up alongside your change, A/B it against a clean tree (`git stash -u`) before assuming you
+  caused it — or that you didn't.
+- **A check that looks the same whether the thing worked or not is not a check.** Before
+  trusting one, name what it would show if the change had done nothing.
+- **Before/after comparisons need equally fresh runs.** A baseline taken from a partially cached
+  build measures a different universe than the after-run.
+- **Confirm the baseline shows the pre-change value before trusting it**, and copy each report to
+  a distinct path immediately.
+
+## Plain technical English
+
+Write for a reader whose first language is not English.
+
+- **One word per idea.** Pick a term and reuse it. No synonyms for variety.
+- **Short sentences.** Around 20 words for an instruction, 25 for an explanation. One
+  instruction per sentence.
+- **Active voice.** "Run the task", not "the task should be run".
+- **One topic per paragraph**, six sentences at most.
+- **Domain terms are fine.** Identifiers, task names, library names and API names are technical
+  names — use them exactly, don't paraphrase them into plain words.
+
+Where it yields: **uncertainty and conditions win over brevity.** A short sentence that drops a
+real caveat is wrong, not simple.
+
+## Chat replies
+
+Answer in chat as a tl;dr: short, plain, human, straightforward.
+
+- This is about chat only. Docs, code, comments, commit messages: write them however the
+  artifact and this file's other rules call for.
+- If something genuinely doesn't compress — a real tradeoff, a caveat that changes the answer —
+  explain it in full. Don't let that become the default excuse for length.
+
+## Working agreements
 
 **Tradeoff:** These guidelines bias toward caution over speed. For trivial tasks, use judgment.
 
-### 1. Think Before Coding
+### Think Before Coding
 
 **Don't assume. Don't hide confusion. Surface tradeoffs.**
 
@@ -189,8 +286,11 @@ Before implementing:
 - If multiple interpretations exist, present them - don't pick silently.
 - If a simpler approach exists, say so. Push back when warranted.
 - If something is unclear, stop. Name what's confusing. Ask.
+- **An answer is not an instruction to act.** If the user states a preference or decision that a
+  later, not-yet-requested step will need, record it for when that step is asked for — don't
+  treat it as authorization to run the step now.
 
-### 2. Simplicity First
+### Simplicity First
 
 **Minimum code that solves the problem. Nothing speculative.**
 
@@ -202,7 +302,7 @@ Before implementing:
 
 Ask yourself: "Would a senior engineer say this is overcomplicated?" If yes, simplify.
 
-### 3. Surgical Changes
+### Surgical Changes
 
 **Touch only what you must. Clean up only your own mess.**
 
@@ -219,7 +319,23 @@ When your changes create orphans:
 
 The test: Every changed line should trace directly to the user's request.
 
-### 4. Goal-Driven Execution
+### Don't Break Production in Favor of Tests
+
+Production code must not be shaped by testing needs. If a code path is flaky or can't be
+observed deterministically as written, fix or remove the *test* — don't add a seam, injectable
+parameter, or abstraction to production code purely so a test can control it. Always ask before
+adding any production-code testability seam, even a well-verified one.
+
+### Determinism Over Process
+
+If a task has one correct, computable answer, use a tool for it. Don't ask the agent to follow a
+fixed procedure by hand.
+
+- A checksum, a sort order, a date calculation, a schema check: write a script or a hook.
+- An agent following prose steps can skip a step, or get one wrong. A script cannot.
+- Reserve judgment for what needs judgment: ambiguous input, a plan, a choice between options.
+
+### Goal-Driven Execution
 
 **Define success criteria. Loop until verified.**
 
@@ -236,3 +352,42 @@ For multi-step tasks, state a brief plan:
 ```
 
 Strong success criteria let you loop independently. Weak criteria ("make it work") require constant clarification.
+
+### A Real Problem Outside the Task Goes in Writing
+
+Write it into `docs/revisit.md` and keep going — not fixed inline (that makes the diff
+unreviewable), not dropped, and not just mentioned in chat. Create the file the first time it's
+needed; give the entry enough evidence (`file:line`) that a cold session can act on it.
+
+### Friction Goes in Writing Too
+
+The rule above is for problems in the **code**. This one is for friction in the **tooling**: a
+guessed command that failed, an auth error, a check that confidently returned the wrong answer.
+Add a line to `docs/frictions.md` (create it if it isn't there) before moving on — one line, past
+tense, naming the tool and the surprise. The same friction three times is a fix, not a fourth
+line; `/finalize` is where that promotion happens.
+
+## Settled decisions
+
+Weighed and declined — don't re-propose these.
+
+| Not used | Instead | Why |
+|---|---|---|
+| Machine-wide skills (`~/.claude/skills/`) | Repo-local (`.claude/skills/`) | Solo desktop project; keeps the skill list self-documenting per clone instead of relying on machine state |
+| ktlint | detekt only | Simpler footprint for a first lint pass; formatting/style enforcement can be added later if wanted |
+| Porting wallosmobile's `CHECKLIST.md`/`Non-negotiables` rule-count tripwire | Path- and version-key-based tripwires only, plus `@Suppress`/`@Ignore` detection | Mukk has neither a `CHECKLIST.md` nor a `Non-negotiables` section; inventing them just to feed the tripwire script would be scope creep |
+
+## Reference projects
+
+Read these rather than guessing; the conventions in this file's process sections are ported
+from them.
+
+- `../agentic-grappim` — shared skills/agents source, and the `templates/CLAUDE.md.template`
+  this section was ported from.
+- `../wallosmobile` — the guardrails CI mechanism (`.github/workflows/guardrails.yml`,
+  `.github/scripts/check-guardrails.sh`) this was adapted from. Its `detekt.yml` and
+  `Non-negotiables`/`CHECKLIST.md` tripwires are Android/multi-module-specific and were **not**
+  ported wholesale — see Settled decisions above.
+
+**Trust their code over their docs.** Another project's `CLAUDE.md` can contradict its own
+implementation. Note a drift here when you find one.
