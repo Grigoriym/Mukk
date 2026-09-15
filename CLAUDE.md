@@ -8,16 +8,16 @@
 
 ## Architecture Decisions
 - **UI**: Compose Desktop (Kotlin/JVM) with Material3 dark theme
-- **Audio playback**: GStreamer via `gst1-java-core:1.4.0`
+- **Audio playback**: GStreamer via `gst1-java-core`
 - **Metadata/tags**: JAudioTagger for reading audio file tags
-- **Database**: SQLite via Exposed ORM 1.0.0 + SQLite JDBC 3.51.1.0
-- **DI**: Koin 4.1.1 (`koin-core`, `koin-compose`, `koin-compose-viewmodel`)
+- **Database**: SQLite via Exposed ORM + SQLite JDBC
+- **DI**: Koin (`koin-core`, `koin-compose`, `koin-compose-viewmodel`)
 - **State management**: MVVM with Kotlin StateFlow
 - **Language**: Kotlin for all business logic and UI
 
 ## Tech Stack
-- Kotlin 2.3.0, Compose Multiplatform 1.10.0
-- Gradle 8.14.3 with version catalogs
+- Kotlin, Compose Multiplatform (versions: `gradle/libs.versions.toml`)
+- Gradle with version catalogs (version: `gradle/wrapper/gradle-wrapper.properties`)
 - JVM target (desktop only for now, multiplatform potential later)
 - Package: `com.grappim.mukk`
 - Main class: `com.grappim.mukk.MainKt`
@@ -182,8 +182,7 @@ ViewModel exposes functions + StateFlows → `App.kt` collects state via `collec
 **Point, don't copy.** Where another file owns a fact, link it and stop. A version number
 restated here is a second copy free to drift from the first, and it will.
 
-- Versions → `gradle/libs.versions.toml` (the **Tech Stack** section above names versions in
-  prose for orientation; treat the catalog as the source of truth if the two ever disagree)
+- Versions → `gradle/libs.versions.toml` (Gradle itself → `gradle/wrapper/gradle-wrapper.properties`)
 
 **Not a growing catalogue, either.** A convention that fits in a sentence or two, with at most
 one example, belongs here. The moment a rule starts accumulating dated, confirmed cases or a
