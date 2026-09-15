@@ -294,6 +294,7 @@ ViewModel exposes functions + StateFlows → `App.kt` collects state via `collec
 - Resume playback across restarts (position/duration/was-playing persisted on window close; `ResumeMode` PAUSED/PLAYING setting controls whether it auto-resumes playing)
 - Single-instance app lock: relaunching focuses the existing window instead of opening a second one (`SingleInstance.kt`)
 - Multi-module split: non-UI logic lives in `core:model`/`core:data`/`core:player`/`core:scanner`; `composeApp` holds only UI + ViewModel + DI wiring
+- Release process: `release-prepare` → `release-finalize` → `release.yml` GitHub Actions chain, builds `.deb`/`.rpm` and publishes a GitHub Release (see "Release Process" below); v1.0.2 shipped this way
 
 ## Backlog
 
@@ -410,6 +411,25 @@ That is an opt-in, not a veto — widening a gate is often right. Run it before 
 `master` is protected by a GitHub ruleset (PRs required, `guardrails` + `build` required status
 checks, no force-push/deletion) with the repo owner as a bypass actor — a direct push to `master`
 still works for the owner, but the intended flow is a PR so the checks actually run before merge.
+
+## Release Process
+
+Three chained workflows (`docs/issues/2026-09-15-release-process.md` has the full design):
+`release-prepare.yml` (`workflow_dispatch` with a `version` input) bumps `version-name` on a
+`release/vX.Y.Z` branch and opens a PR → merging it triggers `release-finalize.yml`, which tags
+`vX.Y.Z` and pushes → the tag push triggers `release.yml`, which builds `.deb`/`.rpm` and
+publishes a GitHub Release. `release.yml` also accepts `workflow_dispatch` with a `tag` input, as
+a manual fallback.
+
+Two one-time repo settings this chain depends on, neither visible from the code:
+- Secret `RELEASE_PAT` (fine-grained PAT, `Contents: Read and write`, scoped to this repo only) —
+  `release-finalize.yml` checks out with it instead of the default `GITHUB_TOKEN`. A push made
+  with the default token never triggers another workflow's `on: push` (GitHub's anti-recursion
+  rule) — without this, the tag lands but `release.yml` never fires from it, only its
+  `workflow_dispatch` fallback does. Found the hard way on the actual v1.0.2 release.
+- Repo setting **Settings → Actions → General → Workflow permissions → "Allow GitHub Actions to
+  create and approve pull requests"** must be on, or `release-prepare.yml`'s `gh pr create` step
+  fails with "GitHub Actions is not permitted to create or approve pull requests."
 
 ## Verification
 
