@@ -236,13 +236,16 @@ policy in CLAUDE.md, no ruleset change).
   feature branch + PR against `master`, gated by the existing ruleset, not the owner's bypass.
   Also updated Close-out step 3 to say commits land via that same PR path.
 
-### Part 2 — Packaging: add Rpm target + license metadata
+### Part 2 — Packaging: add Rpm target + license metadata [x]
 - `composeApp/build.gradle.kts`: add `TargetFormat.Rpm`, set `rpmLicenseType`/`rpmPackageVersion`
   per Option B1. Drop `version-code` from `gradle/libs.versions.toml` per Option A1 (one commit,
   since both touch the same "what does a release build/version" surface).
 - **Verify:** `./gradlew :composeApp:packageDeb :composeApp:packageRpm` succeeds locally (needs
   `fakeroot`/`rpm` installed) and produces both a `.deb` and `.rpm` under
   `composeApp/build/compose/binaries/main*/`.
+- **Landed:** exactly as planned. Verified locally — both tasks succeeded
+  (`mukk_1.0.1_amd64.deb`, `mukk-1.0.1-1.x86_64.rpm`) and `rpm -qip` on the built package confirms
+  `License: Apache-2.0` / `Version: 1.0.1`.
 
 ### Part 3 — `.github/workflows/release-prepare.yml`
 - `workflow_dispatch` with a `version` input; bump `version-name` on a `release/vX.Y.Z` branch;
