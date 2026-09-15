@@ -565,7 +565,7 @@ class MukkViewModel(
                     _scanProgress.value = ScanProgress(true, scanned, total)
                 }
                 loadTracksSync()
-                loadSelectedFolderEntries(browsePath)
+                _selectedFolderEntries.value = buildCachedEntries(trackRepository.findByPathPrefix(browsePath))
             } finally {
                 _scanProgress.value = ScanProgress()
             }

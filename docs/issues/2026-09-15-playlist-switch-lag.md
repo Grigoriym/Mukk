@@ -1,6 +1,6 @@
 # 2026-09-15 — Playlist switching is slow on a large library
 
-**Status:** Approved
+**Status:** In progress
 **Link:** follow-up to `docs/issues/2026-09-15-playlists-and-queue.md` (Part 4, landed same day)   **Updated:** 2026-09-15
 
 ## Report
@@ -190,7 +190,7 @@ the original design doc, and wasn't something the user chose to trade away.
 
 ## Implementation plan
 
-### Part 1 — Stop redoing the walk after reconcile [ ]
+### Part 1 — Stop redoing the walk after reconcile [x]
 - In `MukkViewModel.activatePlaylist()` (`composeApp/src/jvmMain/kotlin/com/grappim/mukk/MukkViewModel.kt:548-574`),
   replace the post-scan `loadSelectedFolderEntries(browsePath)` call with
   `_selectedFolderEntries.value = buildCachedEntries(trackRepository.findByPathPrefix(browsePath))`
@@ -203,6 +203,11 @@ the original design doc, and wasn't something the user chose to trade away.
   tag on a file in a non-active playlist's folder, switch to it, confirm the change still shows up
   once the background reconcile finishes (proves the refresh still picks up scan results, just via
   the bulk query instead of the walk).
+- **Landed:** exactly as planned, one-line change. Automated verify (`jvmMainClasses` + `detekt`)
+  ran clean. Manual verify done in the running app: switching between playlist tabs one at a time
+  stayed responsive while the "Default" playlist's reconcile scan ran. (Rapid repeated tab-clicking
+  during testing hit an unrelated pre-existing OOM crash, and the active-tab styling being hard to
+  read was also noticed — both logged in `docs/revisit.md`, not fixed here.)
 
 ### Part 2 — Batch the reconcile scan's per-file DB check [ ]
 - In `FileScanner.scan()` (`core/scanner/src/jvmMain/kotlin/com/grappim/mukk/core/model/scanner/FileScanner.kt:15-33`),
