@@ -9,6 +9,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
+import com.grappim.mukk.core.data.PlaylistRepository
 import com.grappim.mukk.core.data.PreferencesManager
 import com.grappim.mukk.core.model.MukkLogger
 import com.grappim.mukk.di.appModule
@@ -19,6 +20,7 @@ import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.runBlocking
 import org.jetbrains.compose.resources.decodeToImageBitmap
 import org.koin.core.context.startKoin
 import org.koin.core.context.stopKoin
@@ -40,6 +42,11 @@ fun main() {
     val preferencesManager = koin.get<PreferencesManager>()
     val audioPlayer = koin.get<AudioPlayer>()
     val fileSystemWatcher = koin.get<FileSystemWatcher>()
+    val playlistRepository = koin.get<PlaylistRepository>()
+
+    runBlocking {
+        migrateRootToDefaultPlaylist(playlistRepository, preferencesManager)
+    }
 
     val savedWidth = preferencesManager.windowWidth
     val savedHeight = preferencesManager.windowHeight
@@ -89,4 +96,15 @@ fun main() {
             App(singleInstance = singleInstance)
         }
     }
+}
+
+private suspend fun migrateRootToDefaultPlaylist(
+    playlistRepository: PlaylistRepository,
+    preferencesManager: PreferencesManager
+) {
+    if (playlistRepository.getAll().isNotEmpty()) return
+    val rootPath = preferencesManager.folderTreeRootPath.takeIf { it.isNotEmpty() } ?: return
+    val playlist = playlistRepository.create("Default", rootPath)
+    preferencesManager.playlistActiveId = playlist.id
+    MukkLogger.info("Main", "Migrated existing root '$rootPath' to Default playlist (id=${playlist.id})")
 }

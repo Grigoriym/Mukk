@@ -134,6 +134,10 @@ in SQLite via `WaveformRepository` so repeat plays skip re-decoding.
 - Compile check: `./gradlew composeApp:jvmMainClasses` (NOT `composeApp:classes` — that task doesn't exist)
 - Lint: `./gradlew detekt` — wired into `check` for every module. Pre-existing findings are grandfathered per-module in `config/detekt/baseline/*.xml`; only new findings fail the build. Regenerate a module's baseline after deliberately accepting new findings: `./gradlew :module:path:detektBaseline`.
 - Tests: `./gradlew :core:data:jvmTest` — only `core:data` has a `jvmTest` source set so far (added for `PlaylistRepository`); other modules have none yet.
+- Run the app: `./gradlew :composeApp:run`. In the background (`run_in_background`), the wrapper
+  process exits quickly (code 0) once the app JVM has launched — that's not the app closing,
+  it's a separate long-lived `java ... com.grappim.mukk.MainKt` process (check with `ps aux`).
+  Kill that process, not the wrapper, to close the app from a script.
 
 ## Gotchas & Import Paths
 
@@ -197,6 +201,7 @@ ViewModel exposes functions + StateFlows → `App.kt` collects state via `collec
 | `playback.wasPlaying` | Boolean | `false` | main.kt (saved on window close, for resume-on-startup) |
 | `audio.device` | String | `"auto"` | MukkViewModel |
 | `nowplaying.lyricsHeight` | Int | `200` | MainLayout |
+| `playlist.activeId` | Long | `0` | main.kt (`0` = none; set by the Default-playlist migration on first run after upgrade) |
 
 ## Completed Features
 - Media library scanner (recursive, JAudioTagger tags, SQLite storage)
@@ -285,8 +290,11 @@ the next part," etc.):
    have an unchecked `### Part N`. Exactly one such part across all docs → do that one. More
    than one candidate → ask which, don't guess.
 2. Do exactly what that part describes — nothing from a later part, nothing outside it.
-3. Run its `Verify:` line. If it's a manual, in-app check, say so explicitly and ask the user
-   to confirm it rather than assuming it passed.
+3. Run its `Verify:` line. "Manual" means something only a human can observe — a visual or
+   audio check in the running app's window — and for that, say so explicitly and ask the user
+   to confirm rather than assuming it passed. It does not mean a shell command, SQL query, or
+   file read the agent has tool access to run itself (e.g. checking a DB row landed correctly)
+   — run those directly and report the result instead of asking the user to run them.
 4. Tick the part, add a `Landed:` note if anything deviated, and update the doc's `Status`
    (`In progress`, or `Done` once the last part lands).
 5. Close out per "Close-out" below.

@@ -145,6 +145,10 @@ class PreferencesManager {
         get() = getInt("nowplaying.lyricsHeight", 200)
         set(value) = set("nowplaying.lyricsHeight", value)
 
+    var playlistActiveId: Long
+        get() = getLong("playlist.activeId", 0L)
+        set(value) = set("playlist.activeId", value)
+
     // --- Public utility ---
 
     fun clear() {

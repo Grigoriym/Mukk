@@ -1,6 +1,6 @@
 # 2026-09-15 — Folder-linked playlists
 
-**Status:** In progress — Part 1 landed
+**Status:** In progress — Part 2 landed
 **Link:** `docs/usability-gaps.md` ("No playlists or play queue")   **Updated:** 2026-09-15
 
 ## Report
@@ -249,13 +249,18 @@ than blocking this feature on retrofitting every pre-existing method.
   :composeApp:jvmMainClasses` — all green, including 5 new `PlaylistRepositoryTest` cases
   (create/rename/reorder, delete-cascades-into-tracks-and-waveform-cache, delete-unknown-id).
 
-### Part 2 — Migration: existing root becomes "Default" [ ]
+### Part 2 — Migration: existing root becomes "Default" [x]
 - On startup, if the `Playlists` table is empty and `preferencesManager.folderTreeRootPath`
   is non-empty, create one playlist named `"Default"` pointing at that path with
   `sortOrder = 0`, and mark it active.
 - **Verify (manual):** with an existing pre-upgrade install (a root folder already set), run
   the app once after this change and confirm exactly one playlist exists, named "Default",
   pointing at the previous root, shown as the active tab.
+- **Landed:** added `PreferencesManager.playlistActiveId` (`playlist.activeId`, default `0` =
+  none) and a `migrateRootToDefaultPlaylist()` step in `main.kt`, run via `runBlocking` before
+  the window opens. No tab UI exists yet (Part 4), so verification was data-layer only: ran
+  the real app against the user's actual `library.db`/`preferences.properties` and confirmed
+  one `playlists` row (`1|Default|/media/gregory/g/music|0`) and `playlist.activeId=1`.
 
 ### Part 3 — ViewModel: playlist state + cache-first switch [ ]
 - `MukkViewModel` gains `_playlists`, `_activePlaylistId`, exposed via `MukkUiState`.
