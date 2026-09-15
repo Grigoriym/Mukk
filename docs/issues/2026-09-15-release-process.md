@@ -272,13 +272,22 @@ policy in CLAUDE.md, no ruleset change).
   `release/v*` PR, confirm the tag appears) is deferred to Part 5's own manual check, since a tag
   with no `release.yml` listening for it yet has nothing to confirm beyond "the tag exists."
 
-### Part 5 — `.github/workflows/release.yml`
+### Part 5 — `.github/workflows/release.yml` [x]
 - Trigger on tag push or `workflow_dispatch` with a tag input (Option C2). Install
   `fakeroot`/`rpm`, run `./gradlew :composeApp:packageDeb :composeApp:packageRpm`, upload both as
   a GitHub Release via `softprops/action-gh-release` with `generate_release_notes: true` (no
   Android/AAB/APK steps — none exist in Mukk).
 - **Verify:** the same manual tag-push/dispatch check as Part 4, confirming a GitHub Release
   appears with both artifacts attached.
+- **Landed:** as planned, no Android/keystore steps (none apply). JDK/Gradle setup steps copied
+  from `ci.yml` for consistency rather than TaigaMobileNova's composite action (Mukk has no
+  equivalent composite action, and none of TaigaMobileNova's Android-setup steps apply here).
+  Dropped `preserve_order: true` from the reference `action-gh-release` config — that input
+  orders release notes against a multi-artifact APK/AAB/bundle list this repo doesn't have,
+  nothing to preserve order over with just deb+rpm.
+  End-to-end manual verification (real tag push or `workflow_dispatch`, confirm a GitHub Release
+  appears with both artifacts) is still pending — do it once this PR merges to `master`, since a
+  tag pushed from a branch won't trigger release.yml until the workflow file exists there.
 
 Each part is independently landable and each guardrails-tripping commit needs the
 `Gate-change:` trailer per Finding 6.
