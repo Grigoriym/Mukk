@@ -355,6 +355,11 @@ say what landed and stop; the next part starts in a fresh session. This is delib
 context-budget accident: the doc is written so a session with zero memory of the planning
 conversation can pick up any single part cold.
 
+**Every part lands via a PR, not a direct push to `master`.** Push the part's commit(s) to a
+feature branch and open a PR against `master`; the branch ruleset (PRs required, `guardrails` +
+`build` status checks) then gates the merge. The owner's bypass on that ruleset still technically
+allows a direct push — don't use it as the default path.
+
 **When told to proceed with no more detail than that** ("let's proceed with the task", "do
 the next part," etc.):
 
@@ -383,7 +388,8 @@ At the end of each session that changed code, without being asked:
    and this is where it gets written down instead of dying with the context.
 2. **Check the docs for claims the work just made false.** Grep for what changed rather than
    trusting a read-through.
-3. One commit per logical change, with a plain-English subject line.
+3. One commit per logical change, with a plain-English subject line, on a feature branch with a
+   PR opened against `master` (see "How work happens here").
 
 ## Changing a check means saying so
 
