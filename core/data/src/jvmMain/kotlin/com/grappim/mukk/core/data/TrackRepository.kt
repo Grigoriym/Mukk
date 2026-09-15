@@ -4,7 +4,9 @@ import com.grappim.mukk.core.model.MediaTrackData
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.core.like
 import org.jetbrains.exposed.v1.jdbc.deleteAll
+import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 
 class TrackRepository(
@@ -130,4 +132,20 @@ class TrackRepository(
             }
         }
     }
+
+    suspend fun findByPathPrefix(folderPath: String): List<MediaTrackData> = withContext(Dispatchers.IO) {
+        transaction(databaseInit.database) {
+            MediaTrackEntity.find(
+                MediaTracks.filePath like pathPrefixPattern(folderPath)
+            ).map { it.toData() }
+        }
+    }
+
+    suspend fun deleteByPathPrefix(folderPath: String): Int = withContext(Dispatchers.IO) {
+        transaction(databaseInit.database) {
+            MediaTracks.deleteWhere { filePath like pathPrefixPattern(folderPath) }
+        }
+    }
 }
+
+private fun pathPrefixPattern(folderPath: String) = "${folderPath.trimEnd('/')}/%"

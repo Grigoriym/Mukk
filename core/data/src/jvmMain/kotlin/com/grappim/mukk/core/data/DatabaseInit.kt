@@ -5,14 +5,14 @@ import org.jetbrains.exposed.v1.jdbc.SchemaUtils
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import java.io.File
 
-class DatabaseInit {
+class DatabaseInit(
+    dbFile: File = File(File(System.getProperty("user.home"), ".local/share/mukk"), "library.db")
+) {
 
     val database: Database
 
     init {
-        val dataDir = File(System.getProperty("user.home"), ".local/share/mukk")
-        dataDir.mkdirs()
-        val dbFile = File(dataDir, "library.db")
+        dbFile.parentFile.mkdirs()
 
         database = Database.connect(
             url = "jdbc:sqlite:${dbFile.absolutePath}",
@@ -20,7 +20,7 @@ class DatabaseInit {
         )
 
         transaction(database) {
-            SchemaUtils.create(MediaTracks, WaveformCacheTable)
+            SchemaUtils.create(MediaTracks, WaveformCacheTable, PlaylistsTable)
         }
     }
 }

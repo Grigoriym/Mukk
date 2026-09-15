@@ -15,5 +15,8 @@ kotlin {
             implementation(libs.exposed.jdbc)
             implementation(libs.sqlite.jdbc)
         }
+        jvmTest.dependencies {
+            implementation(libs.kotlin.test)
+        }
     }
 }

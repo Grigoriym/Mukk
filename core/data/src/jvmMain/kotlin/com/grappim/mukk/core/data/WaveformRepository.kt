@@ -3,6 +3,8 @@ package com.grappim.mukk.core.data
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.core.like
+import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import java.io.File
 import java.nio.ByteBuffer
@@ -38,6 +40,12 @@ class WaveformRepository(private val databaseInit: DatabaseInit) {
                     this.fileLastModified = lastModified
                 }
             }
+        }
+    }
+
+    suspend fun deleteByPathPrefix(folderPath: String): Int = withContext(Dispatchers.IO) {
+        transaction(databaseInit.database) {
+            WaveformCacheTable.deleteWhere { filePath like "${folderPath.trimEnd('/')}/%" }
         }
     }
 
