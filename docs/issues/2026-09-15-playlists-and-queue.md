@@ -1,6 +1,6 @@
 # 2026-09-15 — Folder-linked playlists
 
-**Status:** In progress — Part 2 landed
+**Status:** In progress — Part 3 landed
 **Link:** `docs/usability-gaps.md` ("No playlists or play queue")   **Updated:** 2026-09-15
 
 ## Report
@@ -262,7 +262,7 @@ than blocking this feature on retrofitting every pre-existing method.
   the real app against the user's actual `library.db`/`preferences.properties` and confirmed
   one `playlists` row (`1|Default|/media/gregory/g/music|0`) and `playlist.activeId=1`.
 
-### Part 3 — ViewModel: playlist state + cache-first switch [ ]
+### Part 3 — ViewModel: playlist state + cache-first switch [x]
 - `MukkViewModel` gains `_playlists`, `_activePlaylistId`, exposed via `MukkUiState`.
 - `selectPlaylist(id)`: read the playlist's `folderPath`, immediately populate
   `_selectedFolderEntries` from `trackRepository.findByPathPrefix(folderPath)` (no disk I/O),
@@ -279,6 +279,24 @@ than blocking this feature on retrofitting every pre-existing method.
   confirm the track list appears with no visible delay; add a file to the non-active
   playlist's folder, switch to it, confirm the new file appears (reconcile ran); restart the
   app and confirm the previously active tab reopens with its tracks shown immediately.
+- **Landed:** implemented `selectPlaylist`/`createPlaylist`/`renamePlaylist`/
+  `reorderPlaylists`/`deletePlaylist` and a shared private `activatePlaylist()` that does the
+  cache-read → background-scan → `startWatching()` sequence; `init()`'s
+  `restoreFolderTreeState()` call was replaced with `restoreActivePlaylist()`, which loads
+  playlists, resolves `playlist.activeId`, and falls back to the old
+  `restoreFolderTreeState()` only when no active playlist exists yet (fresh installs).
+  `deletePlaylist` picks the neighboring playlist by index (browser-tab-close convention) and
+  fully resets folder-tree/watcher state when the last playlist is removed. No tab UI exists
+  yet (Part 4), so switching itself couldn't be clicked through by hand; instead ran the real
+  dev build against the user's actual `library.db`/`preferences.properties` (after the user
+  stopped their running `/opt/mukk/bin/Mukk` instance to free the single-instance lock) and
+  confirmed via `mukk.log` and a window screenshot that `restoreActivePlaylist()` picked up
+  the existing "Default" playlist, showed its tracks instantly from cache, ran the background
+  reconcile scan, and restarted `FileSystemWatcher` on its folder — with resumed playback
+  intact and no errors. `./gradlew :composeApp:jvmMainClasses :composeApp:detekt
+  :core:data:jvmTest` all pass; `composeApp`'s detekt baseline gained one new `LargeClass`
+  entry for `MukkViewModel` (grown by this part's new methods — splitting it is a separate
+  refactor, out of scope here).
 
 ### Part 4 — UI: browser-style tab strip [ ]
 - New `PlaylistTabBar.kt` composable placed above the three-panel row in `MainLayout.kt`; one

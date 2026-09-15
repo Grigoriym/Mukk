@@ -7,6 +7,7 @@ import com.grappim.mukk.core.model.FileEntry
 import com.grappim.mukk.core.model.FolderTreeState
 import com.grappim.mukk.core.model.MediaTrackData
 import com.grappim.mukk.core.model.PlaybackState
+import com.grappim.mukk.core.model.Playlist
 import com.grappim.mukk.core.model.ScanProgress
 import com.grappim.mukk.core.model.SettingsState
 import kotlinx.collections.immutable.ImmutableList
@@ -24,5 +25,7 @@ data class MukkUiState(
     val waveformPeaks: FloatArray? = null,
     val scanProgress: ScanProgress = ScanProgress(),
     val columnConfig: ColumnConfig = DEFAULT_COLUMN_CONFIG,
-    val settingsState: SettingsState = SettingsState()
+    val settingsState: SettingsState = SettingsState(),
+    val playlists: ImmutableList<Playlist> = persistentListOf(),
+    val activePlaylistId: Long? = null
 )

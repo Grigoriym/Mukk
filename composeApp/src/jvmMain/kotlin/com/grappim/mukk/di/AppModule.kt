@@ -33,6 +33,7 @@ val appModule = module {
         metadataReader = get(),
         fileSystemWatcher = get(),
         waveformExtractor = get(),
-        waveformRepository = get()
+        waveformRepository = get(),
+        playlistRepository = get()
     ) }
 }

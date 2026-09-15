@@ -3,6 +3,7 @@ package com.grappim.mukk
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.grappim.mukk.core.data.PlaylistRepository
 import com.grappim.mukk.core.data.PreferencesManager
 import com.grappim.mukk.core.data.TrackRepository
 import com.grappim.mukk.core.data.WaveformRepository
@@ -32,7 +33,8 @@ class MukkViewModel(
     private val metadataReader: MetadataReader,
     private val fileSystemWatcher: FileSystemWatcher,
     private val waveformExtractor: WaveformExtractor,
-    private val waveformRepository: WaveformRepository
+    private val waveformRepository: WaveformRepository,
+    private val playlistRepository: PlaylistRepository
 ) : ViewModel() {
 
     private val _tracks = MutableStateFlow<List<MediaTrackData>>(emptyList())
@@ -45,6 +47,8 @@ class MukkViewModel(
     private val _scanProgress = MutableStateFlow(ScanProgress())
     private val _columnConfig = MutableStateFlow(DEFAULT_COLUMN_CONFIG)
     private val _settingsState = MutableStateFlow(SettingsState())
+    private val _playlists = MutableStateFlow<ImmutableList<Playlist>>(persistentListOf())
+    private val _activePlaylistId = MutableStateFlow<Long?>(null)
 
     val uiState: StateFlow<MukkUiState> = combine(
         combine(
@@ -59,8 +63,11 @@ class MukkViewModel(
         combine(audioPlayer.state, _tracks, _currentAlbumArt, _currentLyrics, _waveformPeaks) { ps, tracks, art, lyrics, peaks ->
             PlaybackBundle(ps, tracks, art, lyrics, peaks)
         },
-        _settingsState
-    ) { primary, playback, settings ->
+        _settingsState,
+        combine(_playlists, _activePlaylistId) { playlists, activeId ->
+            PlaylistBundle(playlists, activeId)
+        }
+    ) { primary, playback, settings, playlistBundle ->
         val currentTrack = playback.tracks.firstOrNull { it.filePath == playback.playbackState.currentTrackPath }
         val playingFolderPath = playback.playbackState.currentTrackPath?.let { File(it).parent }
         MukkUiState(
@@ -75,7 +82,9 @@ class MukkViewModel(
             currentAlbumArt = playback.albumArt,
             currentLyrics = playback.lyrics,
             waveformPeaks = playback.waveformPeaks,
-            settingsState = settings
+            settingsState = settings,
+            playlists = playlistBundle.playlists,
+            activePlaylistId = playlistBundle.activePlaylistId
         )
     }.stateIn(viewModelScope, SharingStarted.Eagerly, MukkUiState())
 
@@ -93,7 +102,7 @@ class MukkViewModel(
         audioPlayer.setVolume(savedVolume)
 
         loadTracks()
-        restoreFolderTreeState()
+        restoreActivePlaylist()
         restoreColumnConfig()
         restoreSettings()
         restorePlayingTrack()
@@ -452,6 +461,133 @@ class MukkViewModel(
         startWatching(rootPath)
     }
 
+    private fun restoreActivePlaylist() {
+        viewModelScope.launch {
+            val playlists = playlistRepository.getAll().toImmutableList()
+            _playlists.value = playlists
+
+            val savedId = preferencesManager.playlistActiveId.takeIf { it != 0L }
+            val active = playlists.firstOrNull { it.id == savedId }
+            if (active == null) {
+                restoreFolderTreeState()
+                return@launch
+            }
+
+            val expandedPaths = preferencesManager.folderTreeExpandedPaths
+                .filter { File(it).isDirectory }
+                .toSet()
+                .ifEmpty { setOf(active.folderPath) }
+            val browsePath = preferencesManager.folderTreeSelectedPath
+                .takeIf { it.isNotEmpty() && File(it).isDirectory }
+                ?: active.folderPath
+
+            activatePlaylist(active, browsePath = browsePath, expandedPaths = expandedPaths)
+        }
+    }
+
+    fun selectPlaylist(id: Long) {
+        val playlist = _playlists.value.firstOrNull { it.id == id } ?: return
+        activatePlaylist(playlist, browsePath = playlist.folderPath, expandedPaths = setOf(playlist.folderPath))
+    }
+
+    fun createPlaylist(folderPath: String) {
+        viewModelScope.launch {
+            val playlist = playlistRepository.create(File(folderPath).name, folderPath)
+            _playlists.value = playlistRepository.getAll().toImmutableList()
+            activatePlaylist(playlist, browsePath = playlist.folderPath, expandedPaths = setOf(playlist.folderPath))
+        }
+    }
+
+    fun renamePlaylist(id: Long, name: String) {
+        viewModelScope.launch {
+            playlistRepository.rename(id, name)
+            _playlists.value = playlistRepository.getAll().toImmutableList()
+        }
+    }
+
+    fun reorderPlaylists(idsInNewOrder: List<Long>) {
+        viewModelScope.launch {
+            playlistRepository.reorder(idsInNewOrder)
+            _playlists.value = playlistRepository.getAll().toImmutableList()
+        }
+    }
+
+    fun deletePlaylist(id: Long) {
+        viewModelScope.launch {
+            val playlists = _playlists.value
+            val index = playlists.indexOfFirst { it.id == id }
+            if (index < 0) return@launch
+            val deleted = playlists[index]
+
+            val currentPath = audioPlayer.state.value.currentTrackPath
+            if (currentPath != null && isPathUnderFolder(currentPath, deleted.folderPath)) {
+                stop()
+            }
+
+            playlistRepository.delete(id)
+            val remaining = playlistRepository.getAll().toImmutableList()
+            _playlists.value = remaining
+
+            if (_activePlaylistId.value != id) return@launch
+
+            if (remaining.isEmpty()) {
+                _activePlaylistId.value = null
+                preferencesManager.playlistActiveId = 0L
+                _folderTreeState.value = FolderTreeState()
+                _selectedFolderEntries.value = persistentListOf()
+                watcherCollectionJob?.cancel()
+                fileSystemWatcher.stop()
+                saveFolderTreeState()
+            } else {
+                val neighbor = remaining[index.coerceAtMost(remaining.size - 1)]
+                activatePlaylist(neighbor, browsePath = neighbor.folderPath, expandedPaths = setOf(neighbor.folderPath))
+            }
+        }
+    }
+
+    private fun activatePlaylist(playlist: Playlist, browsePath: String, expandedPaths: Set<String>) {
+        _activePlaylistId.value = playlist.id
+        preferencesManager.playlistActiveId = playlist.id
+        _folderTreeState.value = FolderTreeState(
+            rootPath = playlist.folderPath,
+            expandedPaths = expandedPaths,
+            selectedPath = browsePath
+        )
+        _selectedTrackPath.value = null
+        saveFolderTreeState()
+
+        viewModelScope.launch {
+            _selectedFolderEntries.value = buildCachedEntries(trackRepository.findByPathPrefix(browsePath))
+
+            _scanProgress.value = ScanProgress(isScanning = true)
+            try {
+                fileScanner.scan(File(playlist.folderPath)) { scanned, total ->
+                    _scanProgress.value = ScanProgress(true, scanned, total)
+                }
+                loadTracksSync()
+                loadSelectedFolderEntries(browsePath)
+            } finally {
+                _scanProgress.value = ScanProgress()
+            }
+            startWatching(playlist.folderPath)
+        }
+    }
+
+    private fun buildCachedEntries(tracks: List<MediaTrackData>): ImmutableList<FileEntry> =
+        tracks
+            .map { track ->
+                FileEntry(file = File(track.filePath), isDirectory = false, name = track.title, trackData = track)
+            }
+            .sortedWith(
+                compareBy<FileEntry> { it.file.parent }
+                    .thenBy { it.trackData?.trackNumber ?: Int.MAX_VALUE }
+                    .thenBy { it.name.lowercase() }
+            )
+            .toImmutableList()
+
+    private fun isPathUnderFolder(filePath: String, folderPath: String): Boolean =
+        filePath.startsWith(folderPath.trimEnd('/') + "/")
+
     private fun restoreSettings() {
         val repeatMode = preferencesManager.repeatMode
         val shuffle = preferencesManager.shuffleEnabled
@@ -692,6 +828,11 @@ class MukkViewModel(
         val albumArt: ImageBitmap?,
         val lyrics: String?,
         val waveformPeaks: FloatArray?
+    )
+
+    private data class PlaylistBundle(
+        val playlists: ImmutableList<Playlist>,
+        val activePlaylistId: Long?
     )
 
     companion object

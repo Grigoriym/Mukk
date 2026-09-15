@@ -3,6 +3,7 @@
   <ManuallySuppressedIssues/>
   <CurrentIssues>
     <ID>CyclomaticComplexMethod:TrackListPanel.kt:private fun getColumnValue: String</ID>
+    <ID>LargeClass:MukkViewModel.kt:MukkViewModel : ViewModel</ID>
     <ID>LongMethod:App.kt:@Composable fun App</ID>
     <ID>LongMethod:FolderTreePanel.kt:@Composable fun FolderTreePanel</ID>
     <ID>LongMethod:FolderTreePanel.kt:@Composable private fun FolderRow</ID>
