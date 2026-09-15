@@ -1,0 +1,59 @@
+name: Guardrails
+
+# Deliberately no `paths-ignore`, unlike ci.yml: a commit that only touches CLAUDE.md
+# should still be checked for the things that decide what a later commit is allowed to do.
+
+permissions:
+  contents: read
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+
+concurrency:
+  group: guardrails-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  guardrails:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          # For pull_request, actions/checkout defaults to GitHub's synthetic test-merge commit,
+          # whose "Merge X into Y" message can never carry a Gate-change: line even when the real
+          # commit underneath it did. Pin to the PR's actual head commit instead.
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Work out the range to check
+        id: range
+        run: |
+          if [ "${{ github.event_name }}" = 'pull_request' ]; then
+            range="origin/${{ github.base_ref }}..HEAD"
+          else
+            before='${{ github.event.before }}'
+            if ! git cat-file -e "${before}^{commit}" 2>/dev/null; then
+              before="$(git rev-parse --verify --quiet 'HEAD^' || echo '')"
+            fi
+            range="${before:+${before}..}HEAD"
+          fi
+          echo "range=${range}" >> "$GITHUB_OUTPUT"
+          echo "Checking ${range}"
+
+      - name: Check the gate tripwires
+        run: .github/scripts/check-guardrails.sh '${{ steps.range.outputs.range }}'
+
+      - name: Validate workflow YAML syntax
+        run: |
+          npm install --no-save js-yaml
+          for f in .github/workflows/*.yml; do
+            echo "Checking ${f}"
+            node -e "require('js-yaml').load(require('fs').readFileSync('${f}', 'utf8'))"
+          done
