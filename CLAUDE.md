@@ -125,6 +125,9 @@ Panel dividers are draggable (`DraggableDivider` in MainLayout.kt) with `E_RESIZ
 - Filter audio sinks: `monitor.addFilter("Audio/Sink", null)`, then `monitor.start()`, `monitor.devices`, `monitor.stop()`
 - Create sink: `device.createElement("audio-sink")`, set on PlayBin: `playBin.set("audio-sink", element)`, reset to default: `playBin.set("audio-sink", null)`
 
+### detekt
+- This detekt version (`dev.detekt` 2.x line) has no `ignoreAnnotated` option for `FunctionNaming` — see the comment in `config/detekt/detekt.yml` for why `functionPattern` is widened instead of excluding `@Composable`.
+
 ## Android/Compose Rules
 
 - Do not use early returns in Composable functions — use conditional wrapping
