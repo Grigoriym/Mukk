@@ -169,9 +169,9 @@ private fun PlaylistTab(
 ) {
     var isEditing by remember(playlist.id) { mutableStateOf(false) }
     val backgroundColor = if (isActive) {
-        MaterialTheme.colorScheme.surface
+        MaterialTheme.colorScheme.surfaceVariant
     } else {
-        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+        MaterialTheme.colorScheme.surface.copy(alpha = 0.4f)
     }
     val textColor = if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
 
