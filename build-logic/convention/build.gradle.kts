@@ -13,6 +13,7 @@ dependencies {
     implementation(libs.compose.multiplatform.gradle.plugin)
     implementation(libs.compose.compiler.gradle.plugin)
     implementation(libs.compose.hot.reload.gradle.plugin)
+    implementation(libs.detekt.gradlePlugin)
 }
 
 gradlePlugin {

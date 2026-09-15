@@ -1,0 +1,36 @@
+config:
+    validation: true
+    warningsAsErrors: false
+
+# Overrides on top of detekt's default ruleset (buildUponDefaultConfig = true in the
+# mukk.kotlin.library convention plugin). Only rules that conflict with an explicit
+# project convention or fire mostly on UI boilerplate are touched here — everything
+# else stays at detekt's default.
+
+comments:
+    # CLAUDE.md: "Default to writing no comments" — KDoc-coverage rules fight that directly.
+    UndocumentedPublicClass:
+        active: false
+    UndocumentedPublicFunction:
+        active: false
+    UndocumentedPublicProperty:
+        active: false
+
+complexity:
+    # ViewModel/repository classes intentionally expose many small functions
+    # (see CLAUDE.md "Callback Flow") — this rule mostly flags that pattern, not real complexity.
+    TooManyFunctions:
+        active: false
+
+naming:
+    # Composables are PascalCase by convention (they read as the widget they produce). This
+    # detekt version's FunctionNaming has no ignoreAnnotated for @Composable, so widen the
+    # pattern instead of suppressing the rule file-by-file.
+    FunctionNaming:
+        functionPattern: '[a-zA-Z][a-zA-Z0-9]*'
+
+style:
+    # Compose UI code is full of dimension/color/index literals (250.dp, alpha = 0.6f, column
+    # indices) that aren't the "unexplained constant" this rule is meant to catch.
+    MagicNumber:
+        active: false

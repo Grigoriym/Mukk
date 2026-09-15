@@ -1,0 +1,47 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>CyclomaticComplexMethod:TrackListPanel.kt:private fun getColumnValue: String</ID>
+    <ID>LongMethod:App.kt:@Composable fun App</ID>
+    <ID>LongMethod:FolderTreePanel.kt:@Composable fun FolderTreePanel</ID>
+    <ID>LongMethod:FolderTreePanel.kt:@Composable private fun FolderRow</ID>
+    <ID>LongMethod:MainLayout.kt:@Composable fun MainLayout</ID>
+    <ID>LongMethod:NowPlayingPanel.kt:@Composable fun NowPlayingPanel</ID>
+    <ID>LongMethod:SettingsDialog.kt:@Composable private fun PlaybackSection</ID>
+    <ID>LongMethod:TransportBar.kt:@Composable fun TransportBar</ID>
+    <ID>LongMethod:WaveformSeekBar.kt:@Composable fun WaveformSeekBar</ID>
+    <ID>LongMethod:main.kt:fun main</ID>
+    <ID>MaxLineLength:MukkViewModel.kt:MukkViewModel$combine</ID>
+    <ID>MaxLineLength:MukkViewModel.kt:MukkViewModel$val visibleColumns = if (columns.isNotEmpty()) columns.toPersistentList() else DEFAULT_COLUMN_CONFIG.visibleColumns</ID>
+    <ID>ModifierMissing:App.kt:@Composable fun App</ID>
+    <ID>ModifierMissing:MainLayout.kt:@Composable fun MainLayout</ID>
+    <ID>MultipleEmitters:SettingsDialog.kt:@Composable private fun AudioOutputSection</ID>
+    <ID>MultipleEmitters:SettingsDialog.kt:@Composable private fun LibrarySection</ID>
+    <ID>MultipleEmitters:SettingsDialog.kt:@Composable private fun PlaybackSection</ID>
+    <ID>MutableStateAutoboxing:SeekBar.kt:mutableStateOf(0f)</ID>
+    <ID>MutableStateAutoboxing:WaveformSeekBar.kt:mutableStateOf(0f)</ID>
+    <ID>NewLineAtEndOfFile:MukkUiState.kt:com.grappim.mukk.MukkUiState.kt</ID>
+    <ID>ReturnCount:App.kt:private fun pickDirectoryNative: String?</ID>
+    <ID>ReturnCount:MukkViewModel.kt:MukkViewModel$fun getSubfolders: List&lt;Pair&lt;File, Boolean&gt;&gt;</ID>
+    <ID>ReturnCount:MukkViewModel.kt:MukkViewModel$fun nextTrack</ID>
+    <ID>ReturnCount:MukkViewModel.kt:MukkViewModel$private suspend fun listDirectoryEntries: List&lt;FileEntry&gt;</ID>
+    <ID>TooGenericExceptionCaught:App.kt:e: Exception</ID>
+    <ID>TooGenericExceptionCaught:MukkViewModel.kt:MukkViewModel$e: Exception</ID>
+    <ID>WildcardImport:FolderTreePanel.kt:import androidx.compose.foundation.layout.*</ID>
+    <ID>WildcardImport:FolderTreePanel.kt:import androidx.compose.material.icons.filled.*</ID>
+    <ID>WildcardImport:FolderTreePanel.kt:import androidx.compose.material3.*</ID>
+    <ID>WildcardImport:MainLayout.kt:import androidx.compose.foundation.layout.*</ID>
+    <ID>WildcardImport:MainLayout.kt:import androidx.compose.runtime.*</ID>
+    <ID>WildcardImport:MukkViewModel.kt:import com.grappim.mukk.core.model.*</ID>
+    <ID>WildcardImport:MukkViewModel.kt:import kotlinx.coroutines.flow.*</ID>
+    <ID>WildcardImport:NowPlayingPanel.kt:import androidx.compose.foundation.layout.*</ID>
+    <ID>WildcardImport:SettingsDialog.kt:import androidx.compose.foundation.layout.*</ID>
+    <ID>WildcardImport:SettingsDialog.kt:import androidx.compose.material3.*</ID>
+    <ID>WildcardImport:SettingsDialog.kt:import androidx.compose.runtime.*</ID>
+    <ID>WildcardImport:TrackListPanel.kt:import androidx.compose.foundation.layout.*</ID>
+    <ID>WildcardImport:TrackListPanel.kt:import androidx.compose.material3.*</ID>
+    <ID>WildcardImport:TrackListPanel.kt:import androidx.compose.runtime.*</ID>
+    <ID>WildcardImport:TrackListPanel.kt:import androidx.compose.ui.input.pointer.*</ID>
+  </CurrentIssues>
+</SmellBaseline>

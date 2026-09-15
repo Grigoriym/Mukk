@@ -1,0 +1,14 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>CyclomaticComplexMethod:FileScanner.kt:FileScanner$private suspend fun scanSingleFile: Boolean</ID>
+    <ID>CyclomaticComplexMethod:FileSystemWatcher.kt:FileSystemWatcher$fun watch</ID>
+    <ID>LoopWithTooManyJumpStatements:FileSystemWatcher.kt:FileSystemWatcher$while</ID>
+    <ID>MaxLineLength:FileScanner.kt:FileScanner$MukkLogger.debug("FileScanner", "Re-scanning modified file: ${file.name} (file=${file.lastModified()}, db=${existing.lastModified})")</ID>
+    <ID>MaxLineLength:FileScanner.kt:FileScanner$MukkLogger.debug("FileScanner", "Skipping unchanged file: ${file.name} (file=${file.lastModified()}, db=${existing.lastModified})")</ID>
+    <ID>ReturnCount:FileScanner.kt:FileScanner$private suspend fun scanSingleFile: Boolean</ID>
+    <ID>SwallowedException:FileSystemWatcher.kt:FileSystemWatcher$e: NoSuchFileException</ID>
+    <ID>TooGenericExceptionCaught:MetadataReader.kt:MetadataReader$e: Exception</ID>
+  </CurrentIssues>
+</SmellBaseline>
