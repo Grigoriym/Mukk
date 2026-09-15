@@ -138,6 +138,21 @@ in SQLite via `WaveformRepository` so repeat plays skip re-decoding.
   process exits quickly (code 0) once the app JVM has launched — that's not the app closing,
   it's a separate long-lived `java ... com.grappim.mukk.MainKt` process (check with `ps aux`).
   Kill that process, not the wrapper, to close the app from a script.
+- Before manually verifying a fix against an already-running `:composeApp:run` instance, confirm
+  it actually has the new code loaded: compare the running process's start time (`ps -o lstart=
+  -p <pid>`) against the relevant `build/classes/kotlin/jvm/main/**/*.class` file's mtime. A JVM
+  doesn't hot-reload — an instance started before a later rebuild is silently running stale
+  classes, and testing against it (re-launch failed, or a stray background instance survived from
+  an earlier step) gives a false pass or a confusing false failure.
+- GUI-driving the running app (e.g. `xdotool`, for manual verification of a click-driven bug):
+  `wmctrl -l -G` or `xwininfo -root -tree | grep com-grappim-mukk-MainKt` to find the window —
+  several unrelated windows share the title "Mukk", so match on the `com-grappim-mukk-MainKt`
+  WM_CLASS instead, and target the specific hex window ID everywhere below, not the name.
+  `import -window <hex-id> out.png` to screenshot (not `-window Mukk`, which is ambiguous and
+  fails). `xdotool mousemove --window <hex-id> x y click 1` to click at coordinates relative to
+  the window's own content — they map 1:1 to the screenshot's pixels since the window is
+  undecorated. `jcmd <pid> GC.heap_info` reads a running JVM's heap usage without killing it —
+  useful for confirming a fix actually bounds memory instead of just "didn't crash this time."
 
 ## Gotchas & Import Paths
 
@@ -174,6 +189,28 @@ in SQLite via `WaveformRepository` so repeat plays skip re-decoding.
 
 ### detekt
 - This detekt version (`dev.detekt` 2.x line) has no `ignoreAnnotated` option for `FunctionNaming` — see the comment in `config/detekt/detekt.yml` for why `functionPattern` is widened instead of excluding `@Composable`.
+
+### Coroutine cancellation
+- `Job.cancel()` is cooperative and only takes effect at an actual suspension point. Two things
+  in this codebase are atomic from cancellation's perspective and won't stop early no matter how
+  fast `cancel()` is called: (1) a hot loop with no suspending call in its common branch — add
+  `ensureActive()` (from `kotlinx.coroutines.ensureActive`) inside the loop, once per iteration,
+  to make it observable; (2) a single suspend call that does one blocking unit of work start-to-
+  finish (e.g. one Exposed `transaction { }` fetching thousands of rows via
+  `withContext(Dispatchers.IO)`) — it must run to completion before a pending cancellation can
+  even be thrown, so `cancel()` alone cannot prevent it from overlapping with a differently-
+  triggered new call.
+- When a rapid, repeated trigger (a fast click, a fast re-selection) must never have more than one
+  such non-interruptible call in flight at once, `cancel()` isn't enough even paired with
+  `ensureActive()` checkpoints — replace it with `previousJob?.cancelAndJoin()` as the *first*
+  line of the new coroutine, before it does any of its own work. This suspends until the previous
+  one has fully stopped, which strictly serializes the non-interruptible phases regardless of
+  trigger rate, with no debounce window to tune and no regression on the common single-trigger
+  case (nothing to wait for when nothing else is in flight). A fixed-time UI debounce alone bounds
+  trigger *rate*, not call *overlap* — it fails once a single call can outlast the debounce
+  window, which gets more likely, not less, exactly when the system is already under memory
+  pressure. Found via `activatePlaylist()`'s playlist-switch OOM
+  (`docs/issues/2026-09-15-playlist-switch-oom.md`) — `cancelAndJoin()` is the pattern used there.
 
 ## Android/Compose Rules
 
