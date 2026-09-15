@@ -1,6 +1,7 @@
 package com.grappim.mukk.core.model.scanner
 
 import com.grappim.mukk.core.data.TrackRepository
+import com.grappim.mukk.core.model.MediaTrackData
 import com.grappim.mukk.core.model.MukkLogger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -24,9 +25,12 @@ class FileScanner(
         val total = audioFiles.size
         onProgress?.invoke(0, total)
 
+        val existingByPath = trackRepository.findByPathPrefix(directory.absolutePath)
+            .associateBy { it.filePath }
+
         var count = 0
         audioFiles.forEachIndexed { index, file ->
-            if (scanSingleFile(file)) count++
+            if (scanSingleFile(file, existingByPath[file.absolutePath])) count++
             onProgress?.invoke(index + 1, total)
         }
         count
@@ -39,7 +43,8 @@ class FileScanner(
         val files = directory.listFiles() ?: return@withContext 0
         files.filter { it.isFile && isAudioFile(it) }
             .forEach { file ->
-                if (scanSingleFile(file)) count++
+                val existing = trackRepository.findByPath(file.absolutePath)
+                if (scanSingleFile(file, existing)) count++
             }
         count
     }
@@ -48,9 +53,7 @@ class FileScanner(
         return trackRepository.deleteByPath(filePath)
     }
 
-    private suspend fun scanSingleFile(file: File): Boolean {
-        val existing = trackRepository.findByPath(file.absolutePath)
-
+    private suspend fun scanSingleFile(file: File, existing: MediaTrackData?): Boolean {
         if (existing != null) {
             // Also re-scan if db.lastModified == 0 (previous read failed) or if the entry looks
             // like a failed read (title = filename, empty artist/album, zero duration).

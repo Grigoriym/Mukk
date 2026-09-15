@@ -1,6 +1,6 @@
 # 2026-09-15 — Playlist switching is slow on a large library
 
-**Status:** In progress
+**Status:** Done — Part 2 landed
 **Link:** follow-up to `docs/issues/2026-09-15-playlists-and-queue.md` (Part 4, landed same day)   **Updated:** 2026-09-15
 
 ## Report
@@ -209,7 +209,7 @@ the original design doc, and wasn't something the user chose to trade away.
   during testing hit an unrelated pre-existing OOM crash, and the active-tab styling being hard to
   read was also noticed — both logged in `docs/revisit.md`, not fixed here.)
 
-### Part 2 — Batch the reconcile scan's per-file DB check [ ]
+### Part 2 — Batch the reconcile scan's per-file DB check [x]
 - In `FileScanner.scan()` (`core/scanner/src/jvmMain/kotlin/com/grappim/mukk/core/model/scanner/FileScanner.kt:15-33`),
   fetch existing tracks for `directory` once via `trackRepository.findByPathPrefix(directory.absolutePath)`
   into a `Map<String, MediaTrackData>` keyed by `filePath`, before the `audioFiles.forEachIndexed`
@@ -226,3 +226,12 @@ the original design doc, and wasn't something the user chose to trade away.
   Manual: time (stopwatch, or just note the "Scanning X / Y" indicator's visible duration) a
   switch to the Default playlist before and after this change on the same unchanged library state
   — confirm the reconcile itself completes markedly faster, not just off the UI thread.
+- **Landed:** exactly as planned — `FileScanner.scan()` now fetches existing tracks for the
+  target directory once via `findByPathPrefix()` into a `Map<String, MediaTrackData>` before the
+  loop, and `scanSingleFile()` takes the looked-up `MediaTrackData?` as a parameter instead of
+  querying `trackRepository.findByPath()` itself. `scanFolder()` (used by the watcher for a single
+  changed directory, not the recursive playlist-switch path) keeps its own per-file `findByPath()`
+  call ahead of `scanSingleFile()` — out of scope for this fix, unchanged behavior. Automated
+  verify (`compileKotlinJvm` + `detekt` for `core:scanner`, `jvmMainClasses` + `detekt` for
+  `composeApp`) ran clean. Manual verify done in the running app: switched to the "Default"
+  playlist and confirmed things stayed responsive throughout.
