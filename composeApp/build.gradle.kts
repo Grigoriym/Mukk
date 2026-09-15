@@ -52,7 +52,7 @@ compose.desktop {
         )
 
         nativeDistributions {
-            targetFormats(TargetFormat.Deb, TargetFormat.Dmg, TargetFormat.Msi)
+            targetFormats(TargetFormat.Deb, TargetFormat.Rpm, TargetFormat.Dmg, TargetFormat.Msi)
             packageName = libs.versions.app.name.get()
             packageVersion = libs.versions.version.name.get()
             description = libs.versions.app.description.get()
@@ -66,6 +66,8 @@ compose.desktop {
 
                 debMaintainer = libs.versions.app.vendor.get()
                 debPackageVersion = libs.versions.version.name.get()
+                rpmLicenseType = "Apache-2.0"
+                rpmPackageVersion = libs.versions.version.name.get()
                 appCategory = "Music"
                 menuGroup = libs.versions.app.menugroup.get()
                 shortcut = true
