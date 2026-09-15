@@ -260,10 +260,17 @@ policy in CLAUDE.md, no ruleset change).
   Manual `workflow_dispatch` verification against a throwaway version is deferred to after this
   merges to `master` (the workflow can't be dispatched from a branch that isn't `master` yet).
 
-### Part 4 — `.github/workflows/release-finalize.yml`
+### Part 4 — `.github/workflows/release-finalize.yml` [x]
 - On `pull_request` `closed`+merged from a `release/v*` branch into `master`: tag `vX.Y.Z` and
   push. No back-merge step (Option D1).
 - **Verify:** manual — merge a real release PR once Part 3 exists and confirm the tag appears.
+- **Landed:** as planned. No back-merge step, and — because that was the only reason
+  TaigaMobileNova's version needs an admin `RELEASE_PAT` (pushing to `dev`, which has its own
+  branch protection) — this one needs no such secret: tag refs (`refs/tags/*`) aren't covered by
+  the `master` ruleset (`include: ["refs/heads/master"]`), so the default `GITHUB_TOKEN` with
+  `contents: write` can push the tag directly. End-to-end verification (merge a real
+  `release/v*` PR, confirm the tag appears) is deferred to Part 5's own manual check, since a tag
+  with no `release.yml` listening for it yet has nothing to confirm beyond "the tag exists."
 
 ### Part 5 — `.github/workflows/release.yml`
 - Trigger on tag push or `workflow_dispatch` with a tag input (Option C2). Install
