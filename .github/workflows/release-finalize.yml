@@ -28,6 +28,11 @@ jobs:
         with:
           ref: master
           fetch-depth: 0
+          # A tag pushed with the default GITHUB_TOKEN never triggers another workflow's
+          # `on: push` (GitHub's anti-recursion rule) — release.yml's tag-push trigger would
+          # silently never fire. RELEASE_PAT is a real user identity, so the tag push below
+          # does trigger it.
+          token: ${{ secrets.RELEASE_PAT }}
 
       - name: Set up git
         run: |
