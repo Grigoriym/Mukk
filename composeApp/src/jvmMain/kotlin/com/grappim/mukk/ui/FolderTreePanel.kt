@@ -31,7 +31,6 @@ fun FolderTreePanel(
     scanProgress: ScanProgress,
     onToggleExpand: (String) -> Unit,
     onSelectFolder: (String) -> Unit,
-    onOpenFolderClick: () -> Unit,
     onRescanClick: () -> Unit,
     onSettingsClick: () -> Unit,
     getSubfolders: (String) -> List<Pair<File, Boolean>>,
@@ -45,7 +44,6 @@ fun FolderTreePanel(
             .background(MaterialTheme.colorScheme.surface)
     ) {
         HeaderRow(
-            onOpenFolderClick = onOpenFolderClick,
             onRescanClick = onRescanClick,
             onSettingsClick = onSettingsClick,
             showRescan = rootPath != null
@@ -119,7 +117,6 @@ fun FolderTreePanel(
 
 @Composable
 private fun HeaderRow(
-    onOpenFolderClick: () -> Unit,
     onRescanClick: () -> Unit,
     onSettingsClick: () -> Unit,
     showRescan: Boolean
@@ -155,14 +152,6 @@ private fun HeaderRow(
                     modifier = Modifier.size(20.dp)
                 )
             }
-        }
-        IconButton(onClick = onOpenFolderClick, modifier = Modifier.size(32.dp)) {
-            Icon(
-                Icons.Default.CreateNewFolder,
-                contentDescription = "Open Folder",
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(20.dp)
-            )
         }
     }
 }

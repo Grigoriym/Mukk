@@ -99,14 +99,6 @@ fun App(singleInstance: SingleInstance) {
                 onSelectFolder = { path -> viewModel.selectFolder(path) },
                 onRescanClick = { viewModel.rescan() },
                 onSettingsClick = { showSettingsDialog = true },
-                onOpenFolderClick = {
-                    scope.launch(Dispatchers.IO) {
-                        val path = pickDirectoryNative()
-                        if (path != null) {
-                            viewModel.scanDirectory(path)
-                        }
-                    }
-                },
                 onToggleColumn = { viewModel.toggleColumnVisibility(it) },
                 onColumnWidthChange = { col, w -> viewModel.saveColumnWidth(col, w) },
                 onTrackClick = { entry -> viewModel.selectTrack(entry.file.absolutePath) },

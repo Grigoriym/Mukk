@@ -109,29 +109,6 @@ class MukkViewModel(
         loadAudioDevices()
     }
 
-    fun scanDirectory(path: String) {
-        viewModelScope.launch {
-            _scanProgress.value = ScanProgress(isScanning = true)
-            try {
-                fileScanner.scan(File(path)) { scanned, total ->
-                    _scanProgress.value = ScanProgress(true, scanned, total)
-                }
-                loadTracksSync()
-                _folderTreeState.value = FolderTreeState(
-                    rootPath = path,
-                    expandedPaths = setOf(path),
-                    selectedPath = path
-                )
-                loadSelectedFolderEntries(path)
-                saveFolderTreeState()
-                startWatching(path)
-                updateSettingsLibraryInfo()
-            } finally {
-                _scanProgress.value = ScanProgress()
-            }
-        }
-    }
-
     fun rescan() {
         val rootPath = _folderTreeState.value.rootPath ?: return
         viewModelScope.launch {
