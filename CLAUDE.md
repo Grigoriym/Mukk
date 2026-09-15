@@ -53,7 +53,7 @@ composeApp/src/jvmMain/kotlin/com/grappim/mukk/
     ├── MukkTheme.kt         # Material3 dark color scheme
     ├── MainLayout.kt        # Top-level layout: FolderTree | TrackList | NowPlayingPanel / TransportBar; draggable dividers
     ├── SettingsDialog.kt    # Settings modal: audio output, playback (repeat/shuffle/resume), library management
-    ├── NowPlayingPanel.kt   # Album art, metadata, resizable scrollable lyrics for current track
+    ├── NowPlayingPanel.kt   # Album art, metadata (always fully shown), scrollable lyrics filling the rest
     ├── FolderTreePanel.kt   # Expandable folder tree with "Mukk" header + settings/open folder buttons
     ├── TrackListPanel.kt    # Columnar track list (#, File Name, Title, Album, Artist, Duration)
     ├── TransportBar.kt      # Play/pause/stop/skip, waveform seek bar, volume, track info
@@ -98,9 +98,9 @@ Three panels side by side, with a transport bar at the bottom:
 
 1. **Folder Tree** (`FolderTreePanel`, default 250dp, resizable 150–450dp) — expandable tree showing only folders that contain audio files (recursively). Header has "Mukk" title + open folder button. Single-click = select folder (shows tracks), double-click = expand/collapse children. Arrow icon also toggles expand. Playing folder gets subtle highlight + play indicator.
 2. **Track List** (`TrackListPanel`, fills remaining space) — columnar table of audio files from the selected folder. Columns: #, File Name, Title, Album, Artist, Duration. Single-click = select/highlight track, double-click = play. Three visual states: playing (primary), selected (surfaceVariant), default.
-3. **Now-Playing Panel** (`NowPlayingPanel`, default 280dp, resizable 150–450dp) — shows album art (square, rounded corners, placeholder music icon when missing), track metadata (title, artist, album, genre + year), and a scrollable lyrics area with its own draggable height (`nowplaying.lyricsHeight`). Album art and lyrics read on-the-fly from audio files via `MetadataReader.readAlbumArt()` / `readLyrics()` when playback starts. Shows "No track playing" placeholder when idle.
+3. **Now-Playing Panel** (`NowPlayingPanel`, default 280dp, resizable 150–450dp) — shows album art (square, rounded corners, placeholder music icon when missing) and track metadata (title, artist, album, genre + year) at full, unshrinkable size, then a divider, then a scrollable lyrics area filling whatever space is left below it (`weight(1f)`, no manual sizing — metadata is never squeezed to make room). Album art and lyrics read on-the-fly from audio files via `MetadataReader.readAlbumArt()` / `readLyrics()` when playback starts. Shows "No track playing" placeholder when idle.
 
-Panel dividers are draggable (`DraggableDivider` in MainLayout.kt) with `E_RESIZE_CURSOR` hover icon. Widths persist to PreferencesManager (`panel.leftWidth`, `panel.rightWidth`, `nowplaying.lyricsHeight`).
+Panel dividers are draggable (`DraggableDivider` in MainLayout.kt) with `E_RESIZE_CURSOR` hover icon. Widths persist to PreferencesManager (`panel.leftWidth`, `panel.rightWidth`).
 
 The transport bar's seek control (`WaveformSeekBar`) draws the track's decoded waveform peaks
 behind the seek position; peaks are extracted once per track (`WaveformExtractor`) and cached
@@ -137,7 +137,10 @@ in SQLite via `WaveformRepository` so repeat plays skip re-decoding.
 - Run the app: `./gradlew :composeApp:run`. In the background (`run_in_background`), the wrapper
   process exits quickly (code 0) once the app JVM has launched — that's not the app closing,
   it's a separate long-lived `java ... com.grappim.mukk.MainKt` process (check with `ps aux`).
-  Kill that process, not the wrapper, to close the app from a script.
+  Kill that process, not the wrapper, to close the app from a script. `pkill -f
+  "com.grappim.mukk.MainKt"` reliably reports exit code 144 in this sandbox even when the kill
+  succeeded — it is not evidence of failure; check `ps aux` afterward instead of trusting the
+  exit code.
 - Before manually verifying a fix against an already-running `:composeApp:run` instance, confirm
   it actually has the new code loaded: compare the running process's start time (`ps -o lstart=
   -p <pid>`) against the relevant `build/classes/kotlin/jvm/main/**/*.class` file's mtime. A JVM
@@ -153,6 +156,13 @@ in SQLite via `WaveformRepository` so repeat plays skip re-decoding.
   the window's own content — they map 1:1 to the screenshot's pixels since the window is
   undecorated. `jcmd <pid> GC.heap_info` reads a running JVM's heap usage without killing it —
   useful for confirming a fix actually bounds memory instead of just "didn't crash this time."
+  `xdotool mousedown`/`mousemove`/`mouseup` sequences (simulating a drag) do **not** reliably
+  trigger Compose Desktop's `detectDragGestures` callbacks, even with many small incremental
+  moves and delays — confirmed against a panel-width `DraggableDivider`, which never responded
+  to a simulated drag though clicks and scroll wheel worked fine. A screenshot-only check of a
+  resize/drag fix proves the static geometry, not that the drag gesture itself still works —
+  changing the relevant preference value directly and relaunching, or asking the user to try the
+  actual drag, is the only way to verify that part.
 
 ## Gotchas & Import Paths
 
@@ -181,6 +191,17 @@ in SQLite via `WaveformRepository` so repeat plays skip re-decoding.
   Key on a stable value (`Unit`, or a stable id) instead, and read the latest callbacks inside the
   gesture block via `rememberUpdatedState`. Found in `PlaylistTabBar.kt`'s drag-to-reorder: it
   visually reordered tabs but the reorder was never persisted, because `onDragEnd` never ran.
+- Don't nest two `Modifier.verticalScroll()` containers (a scrollable parent wrapping a
+  scrollable child) to make an "outer scrolls if the inner content doesn't fit" fallback —
+  mouse-wheel input over the inner scrollable gets captured by the outer one on Compose Desktop
+  instead of scrolling the inner content first, dragging unrelated sibling content along with
+  it. If one section of a `Column` must always render at its full natural size while a sibling
+  absorbs any size deficit, give the protected section no explicit height and put it first
+  (non-weighted children are measured in order, each getting whatever's left) — Compose's own
+  layout clamps the sibling for free, no scroll wrapper or manual floor/clamp math needed.
+  Found in `NowPlayingPanel.kt`: wrapping the whole panel in `verticalScroll` to keep album art
+  visible on window-shrink instead made scrolling the lyrics text drag the whole panel (album
+  art included) on every wheel tick.
 
 ### GStreamer Device API
 - Device enumeration: `DeviceMonitor` from `org.freedesktop.gstreamer.device`
@@ -245,7 +266,6 @@ ViewModel exposes functions + StateFlows → `App.kt` collects state via `collec
 | `playback.durationMs` | Long | `0` | main.kt (saved on window close, for resume-on-startup) |
 | `playback.wasPlaying` | Boolean | `false` | main.kt (saved on window close, for resume-on-startup) |
 | `audio.device` | String | `"auto"` | MukkViewModel |
-| `nowplaying.lyricsHeight` | Int | `200` | MainLayout |
 | `playlist.activeId` | Long | `0` | main.kt (`0` = none; set by the Default-playlist migration on first run after upgrade) |
 
 ## Completed Features
@@ -274,6 +294,13 @@ ViewModel exposes functions + StateFlows → `App.kt` collects state via `collec
 - Resume playback across restarts (position/duration/was-playing persisted on window close; `ResumeMode` PAUSED/PLAYING setting controls whether it auto-resumes playing)
 - Single-instance app lock: relaunching focuses the existing window instead of opening a second one (`SingleInstance.kt`)
 - Multi-module split: non-UI logic lives in `core:model`/`core:data`/`core:player`/`core:scanner`; `composeApp` holds only UI + ViewModel + DI wiring
+
+## Backlog
+
+`docs/usability-gaps.md` — survey of features other desktop players have that Mukk lacks
+(search, multi-root library, play queue, gapless/crossfade/ReplayGain, tag editing,
+ratings, synced lyrics, multi-select, MPRIS, theming). Not yet prioritized; run any picked-up
+item through `investigate-issue` first.
 
 ## What this file is not
 
