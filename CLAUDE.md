@@ -235,6 +235,10 @@ Gate-change: what was widened, and why
 That is an opt-in, not a veto — widening a gate is often right. Run it before committing:
 `.github/scripts/check-guardrails.sh HEAD~1..HEAD`.
 
+`master` is protected by a GitHub ruleset (PRs required, `guardrails` + `build` required status
+checks, no force-push/deletion) with the repo owner as a bypass actor — a direct push to `master`
+still works for the owner, but the intended flow is a PR so the checks actually run before merge.
+
 ## Verification
 
 **"Done" means the relevant check ran and passed.** If it didn't run, say that instead.
