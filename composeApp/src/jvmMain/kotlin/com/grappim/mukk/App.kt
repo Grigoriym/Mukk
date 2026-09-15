@@ -117,7 +117,19 @@ fun App(singleInstance: SingleInstance) {
                 onPrevious = { viewModel.previousTrack() },
                 onNext = { viewModel.nextTrack() },
                 onSeek = { positionMs -> viewModel.seekTo(positionMs) },
-                onVolumeChange = { volume -> viewModel.setVolume(volume) }
+                onVolumeChange = { volume -> viewModel.setVolume(volume) },
+                onSelectPlaylist = { id -> viewModel.selectPlaylist(id) },
+                onCreatePlaylist = {
+                    scope.launch(Dispatchers.IO) {
+                        val path = pickDirectoryNative()
+                        if (path != null) {
+                            viewModel.createPlaylist(path)
+                        }
+                    }
+                },
+                onRenamePlaylist = { id, name -> viewModel.renamePlaylist(id, name) },
+                onReorderPlaylists = { ids -> viewModel.reorderPlaylists(ids) },
+                onDeletePlaylist = { id -> viewModel.deletePlaylist(id) }
             )
 
             if (showSettingsDialog) {

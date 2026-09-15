@@ -1,6 +1,6 @@
 # 2026-09-15 — Folder-linked playlists
 
-**Status:** In progress — Part 3 landed
+**Status:** Done — Part 4 landed
 **Link:** `docs/usability-gaps.md` ("No playlists or play queue")   **Updated:** 2026-09-15
 
 ## Report
@@ -298,7 +298,7 @@ than blocking this feature on retrofitting every pre-existing method.
   entry for `MukkViewModel` (grown by this part's new methods — splitting it is a separate
   refactor, out of scope here).
 
-### Part 4 — UI: browser-style tab strip [ ]
+### Part 4 — UI: browser-style tab strip [x]
 - New `PlaylistTabBar.kt` composable placed above the three-panel row in `MainLayout.kt`; one
   tab per playlist (name + close control), trailing `+` button that calls
   `pickDirectoryNative()` (`App.kt:34-63`) then `onCreatePlaylist(path)`.
@@ -309,6 +309,16 @@ than blocking this feature on retrofitting every pre-existing method.
 - **Verify (manual):** tabs render for each playlist; `+` creates and switches to a new one;
   dragging reorders and the order survives a restart; closing a tab deletes it, confirmed by
   reopening the app and seeing it gone.
+- **Landed:** manual verification caught a real bug before landing: dragging visually reordered
+  tabs but never persisted — `playlistTabGestures`' `pointerInput(onClick, onDoubleClick)`
+  (`PlaylistTabBar.kt`) was keyed on inline lambdas that get recreated every recomposition,
+  and `onDrag` itself triggers a recomposition (it drives the dragged tab's offset), so the
+  gesture-detection coroutine restarted mid-drag and silently swallowed the eventual pointer-up
+  before `onDragEnd` — and therefore `onReorderPlaylists` — ever fired. Fixed by keying
+  `pointerInput` on `Unit` and reading all five callbacks through `rememberUpdatedState` instead.
+  Confirmed via screenshot automation: drag-then-restart now shows the DB's `sort_order` updated
+  immediately and the new order surviving a process restart. Create (`+`) and close/delete were
+  confirmed manually by the user in the running app.
 
 Order matters: each part leaves the app compiling and working (Parts 1–2 are inert until
 Part 3 wires them in; Part 3 alone changes no visible UI; Part 4 is what a user actually

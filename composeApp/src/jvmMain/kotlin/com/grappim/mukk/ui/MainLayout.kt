@@ -45,7 +45,12 @@ fun MainLayout(
     onPrevious: () -> Unit,
     onNext: () -> Unit,
     onSeek: (Long) -> Unit,
-    onVolumeChange: (Double) -> Unit
+    onVolumeChange: (Double) -> Unit,
+    onSelectPlaylist: (Long) -> Unit,
+    onCreatePlaylist: () -> Unit,
+    onRenamePlaylist: (Long, String) -> Unit,
+    onReorderPlaylists: (List<Long>) -> Unit,
+    onDeletePlaylist: (Long) -> Unit
 ) {
     var leftPanelWidth by remember {
         mutableStateOf(preferencesManager.panelLeftWidth.dp)
@@ -64,6 +69,18 @@ fun MainLayout(
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
     ) {
+        PlaylistTabBar(
+            playlists = uiState.playlists,
+            activePlaylistId = uiState.activePlaylistId,
+            onSelectPlaylist = onSelectPlaylist,
+            onCreatePlaylist = onCreatePlaylist,
+            onRenamePlaylist = onRenamePlaylist,
+            onReorderPlaylists = onReorderPlaylists,
+            onDeletePlaylist = onDeletePlaylist
+        )
+
+        HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant)
+
         Row(modifier = Modifier.weight(1f).fillMaxWidth()) {
             FolderTreePanel(
                 folderTreeState = uiState.folderTreeState,
