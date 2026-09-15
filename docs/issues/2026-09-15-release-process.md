@@ -247,13 +247,18 @@ policy in CLAUDE.md, no ruleset change).
   (`mukk_1.0.1_amd64.deb`, `mukk-1.0.1-1.x86_64.rpm`) and `rpm -qip` on the built package confirms
   `License: Apache-2.0` / `Version: 1.0.1`.
 
-### Part 3 — `.github/workflows/release-prepare.yml`
+### Part 3 — `.github/workflows/release-prepare.yml` [x]
 - `workflow_dispatch` with a `version` input; bump `version-name` on a `release/vX.Y.Z` branch;
   open a PR to `master` (adapted from TaigaMobileNova's `release-prepare.yml`, minus the
   Android/F-Droid/Play changelog stubs per Finding 5, minus `version_code`/`version-code`
   handling per Option A1).
 - **Verify:** manual dispatch against a throwaway version once merged; confirm the PR opens with
   the right branch/diff. (CI-shaped verification isn't possible before this exists on `master`.)
+- **Landed:** as planned, plus adapted to this repo's 2-space YAML indentation (`ci.yml`/
+  `guardrails.yml`'s style, not TaigaMobileNova's 4-space/tab). No `dev`-branch merge step (there
+  is none to merge). PR body drops the F-Droid/Play/back-merge lines that don't apply here.
+  Manual `workflow_dispatch` verification against a throwaway version is deferred to after this
+  merges to `master` (the workflow can't be dispatched from a branch that isn't `master` yet).
 
 ### Part 4 — `.github/workflows/release-finalize.yml`
 - On `pull_request` `closed`+merged from a `release/v*` branch into `master`: tag `vX.Y.Z` and
