@@ -4,11 +4,8 @@ One line per entry, past tense, naming the tool and the surprise. Three occurren
 same friction gets promoted to a real fix (a `CLAUDE.md` line, a script, a permissions entry)
 and the promoted lines leave this file.
 
-- `./gradlew :composeApp:run` exited clean (code 0, "Another instance is already running,
-  notifying it") without launching a new JVM, because the user's packaged `/opt/mukk/bin/Mukk`
-  install was already running and holding the `SingleInstance` lock — looked like a successful
-  launch in the wrapper output until `ps aux` showed no `MainKt` process. Recurred a second time
-  (2026-09-15, NowPlayingPanel resize fix session) — still only two occurrences, not promoted.
 - `kotlinc` was not installed, so a "throwaway `main` in the scratchpad" (Mukklet Part 2
   plan) could not be compiled directly. Worked around with a temporary `jvmTest` class that
   returned early unless an env var was set, run via `--tests '*Name*' --rerun`, then deleted.
+- `xdotool key --window <id> space` did not reach the Compose Desktop window (no play/pause),
+  even after `windowactivate --sync`; mouse clicks are the reliable way to drive the app.

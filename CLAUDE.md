@@ -132,7 +132,8 @@ in SQLite via `WaveformRepository` so repeat plays skip re-decoding.
 - DB access: all Exposed ORM operations go through `TrackRepository` (and `WaveformRepository`, `PlaylistRepository`). Only `core:data` module files import Exposed. When adding new DB operations, add methods to the relevant repository — never use `transaction {}` directly in ViewModel or scanner code.
 - DB location: `~/.local/share/mukk/library.db`
 - Preferences file: `~/.local/share/mukk/preferences.properties`
-- Logging: use `MukkLogger` (`object` singleton, NOT Koin-managed). Use `error`/`warn`/`debug` with `Throwable` to preserve stack traces. A JVM-fatal error (`OutOfMemoryError`, a native crash) never reaches `mukk.log` — it's thrown from an uncaught-exception handler or the AWT event thread, outside any `MukkLogger` call, and only shows up in the run command's own stdout/stderr (the `:composeApp:run` console, or its `tee`d log when launched via `run_in_background`).
+- Logging: use `MukkLogger` (`object` singleton, NOT Koin-managed). Only WARN/ERROR go to
+  `mukk.log`; DEBUG/INFO go to the console only (the `:composeApp:run` output). Use `error`/`warn`/`debug` with `Throwable` to preserve stack traces. A JVM-fatal error (`OutOfMemoryError`, a native crash) never reaches `mukk.log` — it's thrown from an uncaught-exception handler or the AWT event thread, outside any `MukkLogger` call, and only shows up in the run command's own stdout/stderr (the `:composeApp:run` console, or its `tee`d log when launched via `run_in_background`).
 - Adding new settings: field in `SettingsState` → update `_settingsState` in ViewModel → persist via `preferencesManager.set()` → restore in `restoreSettings()` → expose in `SettingsDialog.kt`
 - Compose Desktop focus: global key events require `FocusRequester` + `.focusable()` + `LaunchedEffect` to request focus. Without this, `onPreviewKeyEvent` won't fire until the user clicks something.
 
@@ -146,7 +147,12 @@ in SQLite via `WaveformRepository` so repeat plays skip re-decoding.
   Kill that process, not the wrapper, to close the app from a script. `pkill -f
   "com.grappim.mukk.MainKt"` reliably reports exit code 144 in this sandbox even when the kill
   succeeded — it is not evidence of failure; check `ps aux` afterward instead of trusting the
-  exit code.
+  exit code. It also aborts every later command chained with `;` in the same shell call, so run
+  `pkill` in a call of its own.
+- Before `:composeApp:run`, check `ps aux | grep /opt/mukk` for the user's packaged install.
+  If it runs, it holds the `SingleInstance` lock: the dev run logs "Another instance is already
+  running" and exits 0 without starting a JVM. The two builds also share
+  `preferences.properties`. Ask the user to close the packaged app; don't kill it.
 - Before manually verifying a fix against an already-running `:composeApp:run` instance, confirm
   it actually has the new code loaded: compare the running process's start time (`ps -o lstart=
   -p <pid>`) against the relevant `build/classes/kotlin/jvm/main/**/*.class` file's mtime. A JVM
