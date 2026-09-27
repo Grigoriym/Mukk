@@ -60,7 +60,7 @@ compose.desktop {
             vendor = libs.versions.app.vendor.get()
             copyright = "Copyright 2025 ${libs.versions.app.vendor.get()}"
 
-            modules("java.sql", "java.naming", "jdk.unsupported")
+            modules("java.sql", "java.naming", "java.net.http", "jdk.unsupported")
 
             linux {
                 iconFile.set(project.file("../info/art/logo.png"))
