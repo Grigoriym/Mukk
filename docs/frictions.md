@@ -9,3 +9,4 @@ and the promoted lines leave this file.
   returned early unless an env var was set, run via `--tests '*Name*' --rerun`, then deleted.
 - `xdotool key --window <id> space` did not reach the Compose Desktop window (no play/pause),
   even after `windowactivate --sync`; mouse clicks are the reliable way to drive the app.
+- `gh pr edit` failed with a "Projects (classic) is being deprecated" GraphQL error; `gh api -X PATCH repos/<o>/<r>/pulls/<n> -F body=@file` worked.
