@@ -1,6 +1,6 @@
 # 2026-09-27 — Mukklet display link (stream now-playing to an ESP32 display)
 
-**Status:** In progress
+**Status:** Done
 **Link:** `../esp32-mukklet/docs/MUKK_TASK.md`, contract `../esp32-mukklet/docs/PROTOCOL.md`   **Updated:** 2026-09-27
 
 ## Report
@@ -284,7 +284,7 @@ so every part below is protocol-compliant on its own.
   `null` for non-image bytes.
 
 ### Part 5 — send covers
-- [ ] New `core:scanner` accessor for the raw embedded art bytes. The snapshot carries
+- [x] New `core:scanner` accessor for the raw embedded art bytes. The snapshot carries
   them; `DisplayLink` sends `cover` + binary chunks in the format `hello` asked for, and
   `hasCover` reflects it. `hello` with `format: "none"` → no `cover` messages at all.
   Update `CLAUDE.md`.
@@ -298,3 +298,14 @@ so every part below is protocol-compliant on its own.
   drops binary frames. `mono1` 64×64 on it is planned but not scheduled. So `fake_display.py`
   is the only cover check for this part; the device check stays text-only (no `cover`
   messages at all, since `hello` says `none`).
+- Landed: the accessor is `MetadataReader.readArtworkBytes(file)`. `NowPlayingSnapshot` gained
+  `cover: CoverArt?`; `CoverArt` wraps the bytes and compares by identity (a new tag read is a
+  new cover; no byte compare, no `ArrayInDataClass` finding). The ViewModel reads the art in
+  the same `mapLatest` step as the track, so both change together. `DisplayLink` ignores the
+  snapshot's `hasCover` and sets it from the encode result. It re-encodes when only `next`
+  changes; not cached, as encoding is cheap and runs off the UI thread. The Findings
+  "Inference" is confirmed: each `sendBinary(chunk, true)` is one frame with `fin` set
+  (`mono1` 64: 1 × 512 B; `rgb565` 240: 28 × 4096 B + 1 × 512 B = 115200). Zero
+  `!! PROTOCOL` lines in both runs; a track with no art sent `hasCover: false` and
+  `none: true`. The agent viewed the PNGs; the user's own look at them was asked for at
+  hand-off.

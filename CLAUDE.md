@@ -35,11 +35,13 @@ library modules that hold the non-UI logic. Module boundaries are enforced by wh
 - `core:player/` — `AudioPlayer` (GStreamer `PlayBin` wrapper) + `WaveformExtractor`
 - `core:scanner/` — `FileScanner`, `FileSystemWatcher`, `MetadataReader` (JAudioTagger)
 - `core:mukklet/` — link to the Mukklet ESP32 now-playing display (`../esp32-mukklet`):
-  protocol messages (`ProtocolMessages`, `kotlinx-serialization-json` tree API) and the
-  `DisplayLink` WebSocket client (JDK `java.net.http`, reconnect with backoff). `MukkViewModel`
-  feeds it a `NowPlayingSnapshot` flow and maps its `DisplayCommand`s to the transport actions;
-  settings `mukklet.enabled`/`mukklet.host`. Covers not sent yet — see
-  `docs/issues/2026-09-27-mukklet-display-link.md`
+  protocol messages (`ProtocolMessages`, `kotlinx-serialization-json` tree API), `CoverEncoder`
+  (`java.awt.image`: crop, scale, `mono1`/`rgb565`) and the `DisplayLink` WebSocket client (JDK
+  `java.net.http`, reconnect with backoff). `MukkViewModel` feeds it a `NowPlayingSnapshot` flow
+  (with the raw art bytes from `MetadataReader.readArtworkBytes()`) and maps its
+  `DisplayCommand`s to the transport actions; settings `mukklet.enabled`/`mukklet.host`. The
+  link encodes the cover in the format the display's `hello` asks for and sets `hasCover` from
+  the result. See `docs/issues/2026-09-27-mukklet-display-link.md`
 
 ### Source Layout
 ```
@@ -96,7 +98,7 @@ core/player/src/jvmMain/kotlin/com/grappim/mukk/core/model/player/
 core/scanner/src/jvmMain/kotlin/com/grappim/mukk/core/model/scanner/
 ├── FileScanner.kt         # Recursive directory scanner, delegates DB ops to TrackRepository
 ├── FileSystemWatcher.kt   # WatchService wrapper: real-time filesystem monitoring, emits FileSystemEvents
-└── MetadataReader.kt      # JAudioTagger wrapper: AudioMetadata, readAlbumArt(), readLyrics()
+└── MetadataReader.kt      # JAudioTagger wrapper: read() → AudioMetadata, readNowPlayingExtras() (art + lyrics), readArtworkBytes()
 ```
 
 ## UI Architecture — Three-Panel Layout
@@ -104,7 +106,7 @@ Three panels side by side, with a transport bar at the bottom:
 
 1. **Folder Tree** (`FolderTreePanel`, default 250dp, resizable 150–450dp) — expandable tree showing only folders that contain audio files (recursively). Header has "Mukk" title + open folder button. Single-click = select folder (shows tracks), double-click = expand/collapse children. Arrow icon also toggles expand. Playing folder gets subtle highlight + play indicator.
 2. **Track List** (`TrackListPanel`, fills remaining space) — columnar table of audio files from the selected folder. Columns: #, File Name, Title, Album, Artist, Duration. Single-click = select/highlight track, double-click = play. Three visual states: playing (primary), selected (surfaceVariant), default.
-3. **Now-Playing Panel** (`NowPlayingPanel`, default 280dp, resizable 150–450dp) — shows album art (square, rounded corners, placeholder music icon when missing) and track metadata (title, artist, album, genre + year) at full, unshrinkable size, then a divider, then a scrollable lyrics area filling whatever space is left below it (`weight(1f)`, no manual sizing — metadata is never squeezed to make room). Album art and lyrics read on-the-fly from audio files via `MetadataReader.readAlbumArt()` / `readLyrics()` when playback starts. Shows "No track playing" placeholder when idle.
+3. **Now-Playing Panel** (`NowPlayingPanel`, default 280dp, resizable 150–450dp) — shows album art (square, rounded corners, placeholder music icon when missing) and track metadata (title, artist, album, genre + year) at full, unshrinkable size, then a divider, then a scrollable lyrics area filling whatever space is left below it (`weight(1f)`, no manual sizing — metadata is never squeezed to make room). Album art and lyrics read on-the-fly from audio files via `MetadataReader.readNowPlayingExtras()` when playback starts. Shows "No track playing" placeholder when idle.
 
 Panel dividers are draggable (`DraggableDivider` in MainLayout.kt) with `E_RESIZE_CURSOR` hover icon. Widths persist to PreferencesManager (`panel.leftWidth`, `panel.rightWidth`).
 

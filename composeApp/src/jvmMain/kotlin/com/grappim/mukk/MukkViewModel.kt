@@ -16,6 +16,7 @@ import com.grappim.mukk.core.model.scanner.FileScanner
 import com.grappim.mukk.core.model.scanner.FileSystemEvent
 import com.grappim.mukk.core.model.scanner.FileSystemWatcher
 import com.grappim.mukk.core.model.scanner.MetadataReader
+import com.grappim.mukk.core.mukklet.CoverArt
 import com.grappim.mukk.core.mukklet.DisplayCommand
 import com.grappim.mukk.core.mukklet.DisplayLink
 import com.grappim.mukk.core.mukklet.DisplayState
@@ -105,7 +106,9 @@ class MukkViewModel(
     private val displaySnapshot: StateFlow<NowPlayingSnapshot?> = combine(
         combine(audioPlayer.state.map { it.currentTrackPath }.distinctUntilChanged(), _tracks) { path, tracks ->
             path to tracks
-        }.mapLatest { (path, tracks) -> path?.let { it to displayTrackFor(it, tracks) } },
+        }.mapLatest { (path, tracks) ->
+            path?.let { ResolvedDisplayTrack(it, displayTrackFor(it, tracks), readCoverArt(it)) }
+        },
         audioPlayer.state,
         _settingsState,
         _selectedFolderEntries
@@ -113,8 +116,9 @@ class MukkViewModel(
         // `next` follows the path of the resolved track, not the player's newest path, so a
         // track change never sends the old track with the new track's `next`.
         NowPlayingSnapshot(
-            track = resolved?.second,
-            next = resolved?.let { (path, _) -> nextTrackPreview(entries, path, settings) },
+            track = resolved?.track,
+            next = resolved?.let { nextTrackPreview(entries, it.path, settings) },
+            cover = resolved?.cover,
             state = DisplayState(
                 status = playback.playbackStatus,
                 positionMs = playback.positionMs,
@@ -712,6 +716,11 @@ class MukkViewModel(
             hasCover = false
         )
     }
+
+    private suspend fun readCoverArt(path: String): CoverArt? =
+        metadataReader.readArtworkBytes(File(path))?.let { CoverArt(it) }
+
+    private class ResolvedDisplayTrack(val path: String, val track: DisplayTrack, val cover: CoverArt?)
 
     private fun loadAudioDevices() {
         viewModelScope.launch {

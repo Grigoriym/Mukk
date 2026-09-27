@@ -27,20 +27,32 @@ import java.net.URI
 import java.net.URISyntaxException
 import java.net.http.HttpClient
 import java.net.http.WebSocket
+import java.nio.ByteBuffer
 import java.time.Duration
 import java.util.concurrent.CompletionStage
 
-/** What the display should show. `null` in the input flow means "not known yet, send nothing". */
+/**
+ * What the display should show. `null` in the input flow means "not known yet, send nothing".
+ * [track]'s `hasCover` is ignored: the link sets it from whether [cover] encodes to the format
+ * the display asked for.
+ */
 data class NowPlayingSnapshot(
     val track: DisplayTrack?,
     val next: NextTrack?,
+    val cover: CoverArt?,
     val state: DisplayState
 )
 
 /**
+ * The embedded art of [NowPlayingSnapshot.track], as raw image-file bytes. Equality is by
+ * identity on purpose: a new read of the tag is a new cover, and the bytes are never compared.
+ */
+class CoverArt(val bytes: ByteArray)
+
+/**
  * WebSocket client for the Mukklet display (`../esp32-mukklet/docs/PROTOCOL.md`). Connects in
- * the background, retries with backoff, and never blocks the caller. Sends `track`, a
- * `cover` with `none: true`, and `state`; emits the display's `cmd`s on [commands].
+ * the background, retries with backoff, and never blocks the caller. Sends `track`, `cover`
+ * (with pixels, or `none: true`) and `state`; emits the display's `cmd`s on [commands].
  */
 class DisplayLink {
 
@@ -138,7 +150,7 @@ class DisplayLink {
      * The first snapshot after connect sends the full `track` → `cover` → `state` sequence.
      */
     private suspend fun sendLoop(session: Session, snapshots: StateFlow<NowPlayingSnapshot?>) {
-        var sentTrack: Pair<DisplayTrack?, NextTrack?>? = null
+        var sentTrack: Triple<DisplayTrack?, NextTrack?, CoverArt?>? = null
         var sentState: SentState? = null
         val ticks = flow {
             while (true) {
@@ -147,12 +159,9 @@ class DisplayLink {
             }
         }
         merge(snapshots, ticks).filterNotNull().collect { snapshot ->
-            val trackInfo = snapshot.track to snapshot.next
+            val trackInfo = Triple(snapshot.track, snapshot.next, snapshot.cover)
             if (trackInfo != sentTrack) {
-                session.send(ProtocolMessages.track(snapshot.track, snapshot.next))
-                if (snapshot.track != null && session.hello.cover.format != CoverFormat.NONE) {
-                    session.send(ProtocolMessages.coverNone(snapshot.track.id))
-                }
+                sendTrack(session, snapshot)
                 sentTrack = trackInfo
             }
             val now = monotonicMs()
@@ -163,6 +172,21 @@ class DisplayLink {
         }
     }
 
+    /** `track`, then `cover` (pixels or `none: true`) unless the display asked for no art. */
+    private suspend fun sendTrack(session: Session, snapshot: NowPlayingSnapshot) {
+        val spec = session.hello.cover
+        val pixels = snapshot.cover?.takeIf { snapshot.track != null }?.let { CoverEncoder.encode(it.bytes, spec) }
+        val track = snapshot.track?.copy(hasCover = pixels != null)
+        session.send(ProtocolMessages.track(track, snapshot.next))
+        if (track == null || spec.format == CoverFormat.NONE) return
+        if (pixels == null) {
+            session.send(ProtocolMessages.coverNone(track.id))
+        } else {
+            session.send(ProtocolMessages.cover(track.id, spec, pixels.size))
+            CoverEncoder.chunks(pixels, session.hello.maxChunk).forEach { session.sendBinary(it) }
+        }
+    }
+
     private class Session(
         val ws: WebSocket,
         val listener: Listener,
@@ -170,6 +194,12 @@ class DisplayLink {
     ) {
         suspend fun send(text: String) {
             withTimeoutOrNull(SEND_TIMEOUT_MS) { ws.sendText(text, true).await() }
+                ?: throw IOException("send timed out after ${SEND_TIMEOUT_MS / MS_PER_SECOND} s")
+        }
+
+        /** One call, one binary frame of [chunk.size] bytes. */
+        suspend fun sendBinary(chunk: ByteArray) {
+            withTimeoutOrNull(SEND_TIMEOUT_MS) { ws.sendBinary(ByteBuffer.wrap(chunk), true).await() }
                 ?: throw IOException("send timed out after ${SEND_TIMEOUT_MS / MS_PER_SECOND} s")
         }
     }

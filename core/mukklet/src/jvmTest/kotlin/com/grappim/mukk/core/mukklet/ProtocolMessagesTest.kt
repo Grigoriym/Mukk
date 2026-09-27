@@ -60,6 +60,12 @@ class ProtocolMessagesTest {
     }
 
     @Test
+    fun `cover header matches the protocol example`() {
+        val built = ProtocolMessages.cover("a3f9c2", CoverSpec(64, 64, CoverFormat.MONO1), size = 512)
+        assertEquals(fixture("cover.json"), parseJson(built))
+    }
+
+    @Test
     fun `state message matches the protocol example`() {
         val built = ProtocolMessages.state(
             DisplayState(

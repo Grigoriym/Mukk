@@ -57,6 +57,16 @@ object ProtocolMessages {
         put("none", true)
     }.toString()
 
+    /** The header of a cover with pixels; [size] bytes of binary frames follow it. */
+    fun cover(trackId: String, spec: CoverSpec, size: Int): String = buildJsonObject {
+        put("type", "cover")
+        put("trackId", trackId)
+        put("w", spec.w)
+        put("h", spec.h)
+        put("format", spec.format.name.lowercase())
+        put("size", size)
+    }.toString()
+
     fun state(state: DisplayState): String = buildJsonObject {
         put("type", "state")
         put("status", state.status.name.lowercase())

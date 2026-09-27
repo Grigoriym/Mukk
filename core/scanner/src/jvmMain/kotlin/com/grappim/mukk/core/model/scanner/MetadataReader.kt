@@ -37,6 +37,16 @@ class MetadataReader {
         }
     }
 
+    /** The raw bytes of the first embedded picture, or `null` when the tag has none or can't be read. */
+    suspend fun readArtworkBytes(file: File): ByteArray? = withContext(Dispatchers.IO) {
+        try {
+            AudioFileIO.read(file).tag?.firstArtwork?.binaryData
+        } catch (e: Exception) {
+            MukkLogger.warn("MetadataReader", "Failed to read album art for ${file.name}", e)
+            null
+        }
+    }
+
     suspend fun read(file: File): AudioMetadata? = withContext(Dispatchers.IO) {
         try {
             val audioFile = AudioFileIO.read(file)
