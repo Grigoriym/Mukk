@@ -1,0 +1,17 @@
+{
+  "type": "track",
+  "track": {
+    "id": "a3f9c2",
+    "title": "Paranoid Android",
+    "artist": "Radiohead",
+    "album": "OK Computer",
+    "albumArtist": "Radiohead",
+    "year": 1997,
+    "genre": "Alternative",
+    "trackNo": 2,
+    "durationMs": 386000,
+    "format": "FLAC",
+    "hasCover": true
+  },
+  "next": { "title": "Subterranean Homesick Alien", "artist": "Radiohead" }
+}

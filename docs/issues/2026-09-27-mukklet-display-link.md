@@ -1,6 +1,6 @@
 # 2026-09-27 — Mukklet display link (stream now-playing to an ESP32 display)
 
-**Status:** Approved
+**Status:** In progress
 **Link:** `../esp32-mukklet/docs/MUKK_TASK.md`, contract `../esp32-mukklet/docs/PROTOCOL.md`   **Updated:** 2026-09-27
 
 ## Report
@@ -202,7 +202,7 @@ after every `track`. `PROTOCOL.md` allows that ("tag has none, or it failed to d
 so every part below is protocol-compliant on its own.
 
 ### Part 1 — `core:mukklet` module + protocol messages
-- [ ] New module `core:mukklet` (registered in `settings.gradle.kts`, `jvmTest` with
+- [x] New module `core:mukklet` (registered in `settings.gradle.kts`, `jvmTest` with
   `libs.kotlin.test`). Add `kotlinx-serialization-json` to the catalog.
   `ProtocolMessages`: build `track`, `track: null`, `cover` with `none: true`, `state`;
   parse `hello` and `cmd`, ignoring unknown fields and unknown `type` / `cmd` values.
@@ -211,6 +211,10 @@ so every part below is protocol-compliant on its own.
   not read across repos). They check that built messages have the same keys and JSON
   types as `track.json`, `track_none.json`, `state.json` and `cover_none.json`, including
   Cyrillic strings and quotes in titles.
+- Landed: `kotlinx-serialization-json` 1.11.0, tree API only (no compiler plugin). Tests
+  compare built messages to the fixtures by full JSON equality, not only keys and types.
+  Fixtures live in `core/mukklet/src/jvmTest/resources/protocol/`. `hello` with an unknown
+  or missing cover format parses as `CoverFormat.NONE` (send no art).
 
 ### Part 2 — `DisplayLink` WebSocket client (text only)
 - [ ] Connect loop (backoff 2, 4, 8, 16, 30, 30… s), wait for `hello`, serial sender,

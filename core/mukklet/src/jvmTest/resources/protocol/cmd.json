@@ -1,0 +1,7 @@
+[
+  { "type": "cmd", "cmd": "play_pause" },
+  { "type": "cmd", "cmd": "next" },
+  { "type": "cmd", "cmd": "prev" },
+  { "type": "cmd", "cmd": "volume", "delta": 5 },
+  { "type": "cmd", "cmd": "seek", "deltaMs": -10000 }
+]

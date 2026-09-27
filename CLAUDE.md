@@ -34,6 +34,9 @@ library modules that hold the non-UI logic. Module boundaries are enforced by wh
   `DatabaseInit`) + `PreferencesManager`; the only module that imports Exposed
 - `core:player/` — `AudioPlayer` (GStreamer `PlayBin` wrapper) + `WaveformExtractor`
 - `core:scanner/` — `FileScanner`, `FileSystemWatcher`, `MetadataReader` (JAudioTagger)
+- `core:mukklet/` — link to the Mukklet ESP32 now-playing display (`../esp32-mukklet`):
+  protocol messages (`ProtocolMessages`, `kotlinx-serialization-json` tree API). Not wired into
+  `composeApp` yet — see `docs/issues/2026-09-27-mukklet-display-link.md`
 
 ### Source Layout
 ```
@@ -133,7 +136,7 @@ in SQLite via `WaveformRepository` so repeat plays skip re-decoding.
 ## Build Commands
 - Compile check: `./gradlew composeApp:jvmMainClasses` (NOT `composeApp:classes` — that task doesn't exist)
 - Lint: `./gradlew detekt` — wired into `check` for every module. Pre-existing findings are grandfathered per-module in `config/detekt/baseline/*.xml`; only new findings fail the build. Regenerate a module's baseline after deliberately accepting new findings: `./gradlew :module:path:detektBaseline`.
-- Tests: `./gradlew :core:data:jvmTest` — only `core:data` has a `jvmTest` source set so far (added for `PlaylistRepository`); other modules have none yet.
+- Tests: `./gradlew :core:data:jvmTest :core:mukklet:jvmTest` — only `core:data` and `core:mukklet` have a `jvmTest` source set so far; other modules have none yet.
 - Run the app: `./gradlew :composeApp:run`. In the background (`run_in_background`), the wrapper
   process exits quickly (code 0) once the app JVM has launched — that's not the app closing,
   it's a separate long-lived `java ... com.grappim.mukk.MainKt` process (check with `ps aux`).
