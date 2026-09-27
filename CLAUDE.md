@@ -197,6 +197,12 @@ in SQLite via `WaveformRepository` so repeat plays skip re-decoding.
 - `Icons.Filled.VolumeUp` is deprecated — use `Icons.AutoMirrored.Filled.VolumeUp`
 - `MenuAnchorType` is deprecated — use `ExposedDropdownMenuAnchorType`
 - Material Icons Extended: `compose.materialIconsExtended` in JetBrains compose plugin DSL, add to `jvmMain.dependencies`
+- The `.deb`/`.rpm` ship a trimmed Java runtime with only the JDK modules listed in
+  `nativeDistributions { modules(...) }` (`composeApp/build.gradle.kts`). Code that uses a new
+  JDK module (e.g. `java.net.http`) runs fine under `:composeApp:run` (full JDK) but crashes the
+  installed app with `NoClassDefFoundError`. After adding such code, run
+  `./gradlew :composeApp:suggestRuntimeModules`, then run the result of `:composeApp:createDistributable`
+  (`composeApp/build/compose/binaries/main/app/Mukk/bin/Mukk`) to check. Found on v1.1.0.
 - Never key a custom `Modifier.pointerInput(key1, ...)` gesture detector on inline callback
   lambdas (`pointerInput(onClick, onDoubleClick) { ... }`). If any of those callbacks trigger a
   state change that recomposes the caller (e.g. a drag callback that updates drag-offset state),
