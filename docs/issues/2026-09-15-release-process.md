@@ -1,11 +1,11 @@
 # 2026-09-15 — Introduce a release process and require PRs for all work
 
 **Status:** Done — v1.0.2 shipped end-to-end (`release-prepare` PR → `release-finalize` tag →
-`release.yml` GitHub Release); tag-push auto-trigger fix (`RELEASE_PAT`) still wants one more
-real release to confirm it fires without a manual `workflow_dispatch` fallback
+`release.yml` GitHub Release); v1.1.1 (2026-09-27) confirmed the whole chain runs with no manual
+step: the release PR got its checks, and `release.yml` fired from the tag push alone
 **Link:** none (feature request, not a bug) — reference implementation at
 `../TaigaMobileNova/.github/workflows/{release,release-prepare,release-finalize}.yml`
-**Updated:** 2026-09-15
+**Updated:** 2026-09-27
 
 ## Report
 
@@ -282,7 +282,8 @@ policy in CLAUDE.md, no ruleset change).
   token — same mechanism TaigaMobileNova uses for its `dev` push, but here for triggering
   `release.yml` rather than for branch-protection permission. End-to-end verification (merge a
   real `release/v*` PR, confirm the tag appears *and* `release.yml` fires from the push alone,
-  no manual dispatch) is still pending against a future release now that the fix has landed.
+  no manual dispatch) passed on v1.1.1 (2026-09-27): `release.yml` ran with `event: push` on
+  tag `v1.1.1` and published the `.deb`/`.rpm`.
 
 ### Part 5 — `.github/workflows/release.yml` [x]
 - Trigger on tag push or `workflow_dispatch` with a tag input (Option C2). Install
