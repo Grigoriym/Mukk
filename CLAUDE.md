@@ -36,8 +36,10 @@ library modules that hold the non-UI logic. Module boundaries are enforced by wh
 - `core:scanner/` — `FileScanner`, `FileSystemWatcher`, `MetadataReader` (JAudioTagger)
 - `core:mukklet/` — link to the Mukklet ESP32 now-playing display (`../esp32-mukklet`):
   protocol messages (`ProtocolMessages`, `kotlinx-serialization-json` tree API) and the
-  `DisplayLink` WebSocket client (JDK `java.net.http`, reconnect with backoff). Not wired into
-  `composeApp` yet — see `docs/issues/2026-09-27-mukklet-display-link.md`
+  `DisplayLink` WebSocket client (JDK `java.net.http`, reconnect with backoff). `MukkViewModel`
+  feeds it a `NowPlayingSnapshot` flow and maps its `DisplayCommand`s to the transport actions;
+  settings `mukklet.enabled`/`mukklet.host`. Covers not sent yet — see
+  `docs/issues/2026-09-27-mukklet-display-link.md`
 
 ### Source Layout
 ```
@@ -244,7 +246,7 @@ in SQLite via `WaveformRepository` so repeat plays skip re-decoding.
 - Prefer `kotlinx-collections-immutable` (`ImmutableList`, `persistentListOf()`) over `List`/`MutableList` in state classes and Composable parameters for stable recomposition
 
 ## Dependency Injection (Koin)
-All dependencies are wired via Koin in `di/AppModule.kt`. `DatabaseInit`, `PreferencesManager`, `MetadataReader`, `TrackRepository`, `WaveformRepository`, `PlaylistRepository`, `FileScanner`, `AudioPlayer`, `FileSystemWatcher`, `WaveformExtractor` are `single{}` singletons. `MukkViewModel` is registered via `viewModel{}`. `main.kt` calls `startKoin` before the Compose window. `App.kt` retrieves `MukkViewModel` via `koinViewModel()` and `PreferencesManager` via `koinInject()`. When adding a new service: create the class → register in `appModule` → inject via constructor (for non-Compose code) or `koinInject()` (for composables).
+All dependencies are wired via Koin in `di/AppModule.kt`. `DatabaseInit`, `PreferencesManager`, `MetadataReader`, `TrackRepository`, `WaveformRepository`, `PlaylistRepository`, `FileScanner`, `AudioPlayer`, `FileSystemWatcher`, `WaveformExtractor`, `DisplayLink` are `single{}` singletons. `MukkViewModel` is registered via `viewModel{}`. `main.kt` calls `startKoin` before the Compose window. `App.kt` retrieves `MukkViewModel` via `koinViewModel()` and `PreferencesManager` via `koinInject()`. When adding a new service: create the class → register in `appModule` → inject via constructor (for non-Compose code) or `koinInject()` (for composables).
 
 ## Callback Flow
 ViewModel exposes functions + StateFlows → `App.kt` collects state via `collectAsState()` and passes lambdas → `MainLayout` forwards to child panels. All UI composables are stateless — they receive data and callbacks as parameters. When adding a new action: add function to ViewModel → wire lambda in App.kt → thread through MainLayout → use in target panel.
@@ -271,6 +273,8 @@ ViewModel exposes functions + StateFlows → `App.kt` collects state via `collec
 | `playback.wasPlaying` | Boolean | `false` | main.kt (saved on window close, for resume-on-startup) |
 | `audio.device` | String | `"auto"` | MukkViewModel |
 | `playlist.activeId` | Long | `0` | main.kt (`0` = none; set by the Default-playlist migration on first run after upgrade) |
+| `mukklet.enabled` | Boolean | `false` | MukkViewModel (Mukklet display link on/off) |
+| `mukklet.host` | String | `"mukklet.local"` | MukkViewModel (display host, may include `:port`) |
 
 ## Completed Features
 - Media library scanner (recursive, JAudioTagger tags, SQLite storage)

@@ -132,6 +132,8 @@ fun App(singleInstance: SingleInstance) {
                     onShuffleToggle = { viewModel.toggleShuffle() },
                     onResumeModeChange = { viewModel.setResumeMode(it) },
                     onAudioDeviceChange = { viewModel.setAudioDevice(it) },
+                    onMukkletEnabledChange = { viewModel.setMukkletEnabled(it) },
+                    onMukkletHostChange = { viewModel.setMukkletHost(it) },
                     onRescanAll = { viewModel.rescan() },
                     onClearLibrary = { viewModel.clearLibrary() },
                     onResetPreferences = { viewModel.resetPreferences() },

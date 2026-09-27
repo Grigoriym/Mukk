@@ -22,6 +22,8 @@ fun SettingsDialog(
     onShuffleToggle: () -> Unit,
     onResumeModeChange: (ResumeMode) -> Unit,
     onAudioDeviceChange: (String) -> Unit,
+    onMukkletEnabledChange: (Boolean) -> Unit,
+    onMukkletHostChange: (String) -> Unit,
     onRescanAll: () -> Unit,
     onClearLibrary: () -> Unit,
     onResetPreferences: () -> Unit,
@@ -48,6 +50,14 @@ fun SettingsDialog(
                     onRepeatModeChange = onRepeatModeChange,
                     onShuffleToggle = onShuffleToggle,
                     onResumeModeChange = onResumeModeChange
+                )
+
+                HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
+
+                MukkletSection(
+                    settingsState = settingsState,
+                    onMukkletEnabledChange = onMukkletEnabledChange,
+                    onMukkletHostChange = onMukkletHostChange
                 )
 
                 HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
@@ -196,6 +206,48 @@ private fun PlaybackSection(
                 }
             )
         }
+    }
+}
+
+@Composable
+private fun MukkletSection(
+    settingsState: SettingsState,
+    onMukkletEnabledChange: (Boolean) -> Unit,
+    onMukkletHostChange: (String) -> Unit
+) {
+    Column {
+        Text(
+            text = "Mukklet Display",
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.primary
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "Send now playing to the display",
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.weight(1f)
+            )
+            Switch(
+                checked = settingsState.mukkletEnabled,
+                onCheckedChange = onMukkletEnabledChange
+            )
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        OutlinedTextField(
+            value = settingsState.mukkletHost,
+            onValueChange = onMukkletHostChange,
+            label = { Text("Host (may include :port)") },
+            singleLine = true,
+            enabled = settingsState.mukkletEnabled,
+            modifier = Modifier.fillMaxWidth()
+        )
     }
 }
 

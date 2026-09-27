@@ -16,5 +16,9 @@ data class SettingsState(
     val selectedAudioDevice: String = "auto",
     val libraryPath: String? = null,
     val trackCount: Int = 0,
-    val resumeMode: ResumeMode = ResumeMode.PAUSED
+    val resumeMode: ResumeMode = ResumeMode.PAUSED,
+    val mukkletEnabled: Boolean = false,
+    val mukkletHost: String = DEFAULT_MUKKLET_HOST
 )
+
+const val DEFAULT_MUKKLET_HOST = "mukklet.local"

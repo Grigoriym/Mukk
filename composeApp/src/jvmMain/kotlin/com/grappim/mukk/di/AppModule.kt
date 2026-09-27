@@ -6,6 +6,7 @@ import com.grappim.mukk.core.data.PlaylistRepository
 import com.grappim.mukk.core.data.PreferencesManager
 import com.grappim.mukk.core.data.TrackRepository
 import com.grappim.mukk.core.data.WaveformRepository
+import com.grappim.mukk.core.mukklet.DisplayLink
 import com.grappim.mukk.core.model.player.AudioPlayer
 import com.grappim.mukk.core.model.player.WaveformExtractor
 import com.grappim.mukk.core.model.scanner.FileScanner
@@ -25,6 +26,7 @@ val appModule = module {
     single { WaveformExtractor() }
     single { WaveformRepository(databaseInit = get()) }
     single { PlaylistRepository(databaseInit = get(), trackRepository = get(), waveformRepository = get()) }
+    single { DisplayLink() }
     viewModel { MukkViewModel(
         audioPlayer = get(),
         trackRepository = get(),
@@ -34,6 +36,7 @@ val appModule = module {
         fileSystemWatcher = get(),
         waveformExtractor = get(),
         waveformRepository = get(),
-        playlistRepository = get()
+        playlistRepository = get(),
+        displayLink = get()
     ) }
 }

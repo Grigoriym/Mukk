@@ -12,6 +12,7 @@ import androidx.compose.ui.window.rememberWindowState
 import com.grappim.mukk.core.data.PlaylistRepository
 import com.grappim.mukk.core.data.PreferencesManager
 import com.grappim.mukk.core.model.MukkLogger
+import com.grappim.mukk.core.mukklet.DisplayLink
 import com.grappim.mukk.di.appModule
 import com.grappim.mukk.core.model.player.AudioPlayer
 import com.grappim.mukk.core.model.PlaybackStatus
@@ -43,6 +44,7 @@ fun main() {
     val audioPlayer = koin.get<AudioPlayer>()
     val fileSystemWatcher = koin.get<FileSystemWatcher>()
     val playlistRepository = koin.get<PlaylistRepository>()
+    val displayLink = koin.get<DisplayLink>()
 
     runBlocking {
         migrateRootToDefaultPlaylist(playlistRepository, preferencesManager)
@@ -81,6 +83,7 @@ fun main() {
                     preferencesManager.playbackWasPlaying = playbackState.playbackStatus == PlaybackStatus.PLAYING
                 }
                 fileSystemWatcher.stop()
+                displayLink.close()
                 audioPlayer.dispose()
                 preferencesManager.dispose()
                 singleInstance.close()

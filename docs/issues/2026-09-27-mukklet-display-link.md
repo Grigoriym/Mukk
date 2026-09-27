@@ -245,7 +245,7 @@ so every part below is protocol-compliant on its own.
   `jvmTest` file (no `kotlinc` on this machine), deleted afterwards.
 
 ### Part 3 — wire into Mukk + settings + docs (text only)
-- [ ] `MukkViewModel` builds the snapshot (DB data, or `MetadataReader.read()` fallback
+- [x] `MukkViewModel` builds the snapshot (DB data, or `MetadataReader.read()` fallback
   for unscanned files; next-track preview sharing the pick logic with `nextTrack()`) and
   maps commands to its actions. Settings `mukklet.enabled` / `mukklet.host` through
   `SettingsState` → `PreferencesManager` → `SettingsDialog`. `main.kt` closes the link.
@@ -256,6 +256,14 @@ so every part below is protocol-compliant on its own.
   message within ~1 s; no `!! PROTOCOL` lines; reconnect works; with the setting off, no
   connection attempts. The agent checks the output itself. The user confirms that the
   fake-display keys (`p n b + - f r`) do the same as the matching Mukk buttons.
+- Landed: the snapshot flow is `WhileSubscribed`, so with the setting off Mukk does no snapshot
+  work either. `next` is computed from the path of the *resolved* track, not the player's
+  newest path. Otherwise a track change first sent the old track with the new `next`. Host
+  edits restart the link after a 500 ms pause in typing. `track.id` is the hex `hashCode()` of
+  the path. The fake-display keys were driven by the agent, not the user. The user then
+  checked the real device (`mukklet-oled` at `mukklet.local`, `hello` format `none`) with the
+  knob and confirmed it works. The ESP32 session recorded Open questions 1–2 in `MUKK_TASK.md`
+  and accepted both as is.
 
 ### Part 4 — cover encoder
 - [ ] `CoverEncoder` in `core:mukklet`: decode bytes → center-crop → scale → `mono1`
