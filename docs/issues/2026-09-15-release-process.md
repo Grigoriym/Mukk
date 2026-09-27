@@ -261,6 +261,10 @@ policy in CLAUDE.md, no ruleset change).
   is none to merge). PR body drops the F-Droid/Play/back-merge lines that don't apply here.
   Manual `workflow_dispatch` verification against a throwaway version is deferred to after this
   merges to `master` (the workflow can't be dispatched from a branch that isn't `master` yet).
+- **Corrected 2026-09-27:** the v1.1.0 release PR (#10) got no `guardrails`/`build` checks and
+  stayed blocked. The branch push and `gh pr create` used the default `GITHUB_TOKEN`, so the
+  same anti-recursion rule as in Part 4 stopped the `pull_request` workflows. Now both use
+  `RELEASE_PAT`, which therefore also needs `Pull requests: Read and write`.
 
 ### Part 4 — `.github/workflows/release-finalize.yml` [x]
 - On `pull_request` `closed`+merged from a `release/v*` branch into `master`: tag `vX.Y.Z` and

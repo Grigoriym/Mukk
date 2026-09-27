@@ -21,6 +21,11 @@ jobs:
         with:
           ref: master
           fetch-depth: 0
+          # A branch push or PR made with the default GITHUB_TOKEN never triggers another
+          # workflow (GitHub's anti-recursion rule) — the release PR's required `guardrails`
+          # and `build` checks would never run, leaving it blocked. RELEASE_PAT is a real user
+          # identity, so the push below and the PR in the next step do trigger them.
+          token: ${{ secrets.RELEASE_PAT }}
 
       - name: Set up git
         run: |
@@ -41,7 +46,7 @@ jobs:
 
       - name: Create PR
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.RELEASE_PAT }}
         run: |
           gh pr create \
             --base master \
