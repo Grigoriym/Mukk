@@ -437,15 +437,14 @@ Three chained workflows (`docs/issues/2026-09-15-release-process.md` has the ful
 publishes a GitHub Release. `release.yml` also accepts `workflow_dispatch` with a `tag` input, as
 a manual fallback.
 
-Two one-time repo settings this chain depends on, neither visible from the code:
-- Secret `RELEASE_PAT` (fine-grained PAT, `Contents: Read and write`, scoped to this repo only) —
-  `release-finalize.yml` checks out with it instead of the default `GITHUB_TOKEN`. A push made
-  with the default token never triggers another workflow's `on: push` (GitHub's anti-recursion
-  rule) — without this, the tag lands but `release.yml` never fires from it, only its
-  `workflow_dispatch` fallback does. Found the hard way on the actual v1.0.2 release.
-- Repo setting **Settings → Actions → General → Workflow permissions → "Allow GitHub Actions to
-  create and approve pull requests"** must be on, or `release-prepare.yml`'s `gh pr create` step
-  fails with "GitHub Actions is not permitted to create or approve pull requests."
+One one-time repo setting this chain depends on, not visible from the code:
+- Secret `RELEASE_PAT` (fine-grained PAT, scoped to this repo only, `Contents: Read and write`
+  and `Pull requests: Read and write`). Both `release-prepare.yml` (branch push + `gh pr create`)
+  and `release-finalize.yml` (tag push) use it instead of the default `GITHUB_TOKEN`. A push or
+  PR made with the default token never triggers another workflow (GitHub's anti-recursion rule).
+  Without the PAT, the tag lands but `release.yml` never fires from it (found on v1.0.2), and the
+  release PR never gets its required `guardrails`/`build` checks, so it stays blocked (found on
+  v1.1.0).
 
 ## Verification
 
