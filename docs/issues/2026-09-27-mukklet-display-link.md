@@ -266,7 +266,7 @@ so every part below is protocol-compliant on its own.
   and accepted both as is.
 
 ### Part 4 — cover encoder
-- [ ] `CoverEncoder` in `core:mukklet`: decode bytes → center-crop → scale → `mono1`
+- [x] `CoverEncoder` in `core:mukklet`: decode bytes → center-crop → scale → `mono1`
   (Floyd–Steinberg, MSB = leftmost, 1 = white) or `rgb565` (big-endian) → chunks by
   `maxChunk`. Decode failure → `null` (caller keeps sending `none: true`). Plain
   `java.awt.image`. Not wired in yet.
@@ -274,6 +274,14 @@ so every part below is protocol-compliant on its own.
   keeps the center; `mono1` of a left-white/right-black 8×1 image is `0xF0`; a solid
   mid-gray dithers to about 50% set bits; `rgb565` of pure red is bytes `F8 00`; 512
   bytes with `maxChunk` 200 → chunks of 200, 200, 112.
+- Landed: API is `CoverEncoder.encode(bytes, CoverSpec): ByteArray?` and
+  `CoverEncoder.chunks(data, maxChunk)`. `encode` also returns `null` for format `none` and
+  for an invalid spec (`w`/`h` ≤ 0, or `mono1` with `w` not a multiple of 8) instead of
+  throwing, so a bad `hello` can't kill the link. Decoding uses `ImageIO` (JPEG, PNG, BMP,
+  GIF); other formats in tags (e.g. WebP, CMYK JPEG) give `null`. A large downscale halves
+  in bilinear steps before the last step, to avoid aliasing. Extra tests: vertical crop,
+  `rgb565` byte order for blue and green, full `encode` output size for both formats,
+  `null` for non-image bytes.
 
 ### Part 5 — send covers
 - [ ] New `core:scanner` accessor for the raw embedded art bytes. The snapshot carries
@@ -285,3 +293,8 @@ so every part below is protocol-compliant on its own.
   PNGs in `/tmp/fake_display/`, a track without art sends `none: true`. Confirm one
   binary frame per chunk (Findings, "Inference") with a temporary `fin`/length print in a
   scratch copy of `fake_display.py`. The user confirms that the PNGs look right.
+- Note (2026-09-27, from the `esp32-mukklet` session): the real OLED (128×64 SSD1315) can't
+  show covers yet. Its firmware hard-codes `hello` format `none` (`main/proto.c:115`) and
+  drops binary frames. `mono1` 64×64 on it is planned but not scheduled. So `fake_display.py`
+  is the only cover check for this part; the device check stays text-only (no `cover`
+  messages at all, since `hello` says `none`).
