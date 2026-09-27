@@ -224,7 +224,7 @@ so every part below is protocol-compliant on its own.
   or missing cover format parses as `CoverFormat.NONE` (send no art).
 
 ### Part 2 — `DisplayLink` WebSocket client (text only)
-- [ ] Connect loop (backoff 2, 4, 8, 16, 30, 30… s), wait for `hello`, serial sender,
+- [x] Connect loop (backoff 2, 4, 8, 16, 30, 30… s), wait for `hello`, serial sender,
   full resync after every (re)connect (`track` → `cover none` → `state`), 5 s heartbeat,
   state-change filter (Open question 4), `close()`. Input:
   `StateFlow<NowPlayingSnapshot?>`; output: `Flow<DisplayCommand>`. Not wired into the
@@ -233,6 +233,16 @@ so every part below is protocol-compliant on its own.
   state-change filter). Then a manual run against `fake_display.py` from a throwaway
   `main` in the scratchpad: no `!! PROTOCOL` lines, `state` every 5 s, reconnect after
   killing and restarting the fake display. The agent runs and reads this itself.
+- Landed: API is `DisplayLink.start(host, snapshots)` / `stop()` / `close()` plus
+  `commands: Flow<DisplayCommand>`; `start()` on a running link replaces it
+  (`cancelAndJoin`). The serial sender is one collector coroutine that awaits each send
+  (the listener never sends), not a separate `Channel`. Added a 10 s `hello` timeout and a
+  10 s send timeout, both of which drop the connection and retry. The heartbeat ticks every
+  1 s, so `state` goes out every 5–6 s. `cover` is skipped for `track: null` (no `trackId`)
+  and for `hello` `format: "none"`. A change of `next` alone resends `track` + `cover`.
+  Pure parts live in `LinkTiming.kt` (`reconnectDelayMs`, `isStateDue`). Added
+  `kotlinx-coroutines-core` to the catalog. The manual check ran from a temporary
+  `jvmTest` file (no `kotlinc` on this machine), deleted afterwards.
 
 ### Part 3 — wire into Mukk + settings + docs (text only)
 - [ ] `MukkViewModel` builds the snapshot (DB data, or `MetadataReader.read()` fallback

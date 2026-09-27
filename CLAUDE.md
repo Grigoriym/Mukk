@@ -35,7 +35,8 @@ library modules that hold the non-UI logic. Module boundaries are enforced by wh
 - `core:player/` — `AudioPlayer` (GStreamer `PlayBin` wrapper) + `WaveformExtractor`
 - `core:scanner/` — `FileScanner`, `FileSystemWatcher`, `MetadataReader` (JAudioTagger)
 - `core:mukklet/` — link to the Mukklet ESP32 now-playing display (`../esp32-mukklet`):
-  protocol messages (`ProtocolMessages`, `kotlinx-serialization-json` tree API). Not wired into
+  protocol messages (`ProtocolMessages`, `kotlinx-serialization-json` tree API) and the
+  `DisplayLink` WebSocket client (JDK `java.net.http`, reconnect with backoff). Not wired into
   `composeApp` yet — see `docs/issues/2026-09-27-mukklet-display-link.md`
 
 ### Source Layout

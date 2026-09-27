@@ -7,6 +7,7 @@ kotlin {
         jvmMain.dependencies {
             implementation(projects.core.model)
 
+            implementation(libs.kotlinx.coroutinesCore)
             implementation(libs.kotlinx.serialization.json)
         }
         jvmTest.dependencies {

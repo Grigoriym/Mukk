@@ -9,3 +9,6 @@ and the promoted lines leave this file.
   install was already running and holding the `SingleInstance` lock — looked like a successful
   launch in the wrapper output until `ps aux` showed no `MainKt` process. Recurred a second time
   (2026-09-15, NowPlayingPanel resize fix session) — still only two occurrences, not promoted.
+- `kotlinc` was not installed, so a "throwaway `main` in the scratchpad" (Mukklet Part 2
+  plan) could not be compiled directly. Worked around with a temporary `jvmTest` class that
+  returned early unless an env var was set, run via `--tests '*Name*' --rerun`, then deleted.
