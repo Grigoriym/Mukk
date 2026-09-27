@@ -193,6 +193,13 @@ preview call — but only the part needed, and only in the wiring part.
 The user changed the order: text info (track, state, commands) first, covers last. The
 plan below reflects that order.
 
+**One PR for all parts** (user, 2026-09-27). This overrides the usual "every part lands via
+its own PR" rule for this doc only. Every part commits to branch
+`mukklet/part1-protocol-messages` and updates PR #9
+(https://github.com/Grigoriym/Mukk/pull/9). Don't open a new PR, and don't merge #9 until
+Part 5 is ticked. Parts still land one per session, each with its own commit(s) and
+`Landed:` note.
+
 
 ## Implementation plan
 
