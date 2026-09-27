@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
+
 package com.grappim.mukk
 
 import androidx.compose.ui.graphics.ImageBitmap
@@ -14,16 +16,26 @@ import com.grappim.mukk.core.model.scanner.FileScanner
 import com.grappim.mukk.core.model.scanner.FileSystemEvent
 import com.grappim.mukk.core.model.scanner.FileSystemWatcher
 import com.grappim.mukk.core.model.scanner.MetadataReader
+import com.grappim.mukk.core.mukklet.CoverArt
+import com.grappim.mukk.core.mukklet.DisplayCommand
+import com.grappim.mukk.core.mukklet.DisplayLink
+import com.grappim.mukk.core.mukklet.DisplayState
+import com.grappim.mukk.core.mukklet.DisplayTrack
+import com.grappim.mukk.core.mukklet.NextTrack
+import com.grappim.mukk.core.mukklet.NowPlayingSnapshot
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.collections.immutable.toPersistentList
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.io.File
+import kotlin.math.roundToInt
 import kotlin.time.Duration.Companion.milliseconds
 
 class MukkViewModel(
@@ -35,7 +47,8 @@ class MukkViewModel(
     private val fileSystemWatcher: FileSystemWatcher,
     private val waveformExtractor: WaveformExtractor,
     private val waveformRepository: WaveformRepository,
-    private val playlistRepository: PlaylistRepository
+    private val playlistRepository: PlaylistRepository,
+    private val displayLink: DisplayLink
 ) : ViewModel() {
 
     private val _tracks = MutableStateFlow<List<MediaTrackData>>(emptyList())
@@ -89,6 +102,33 @@ class MukkViewModel(
         )
     }.stateIn(viewModelScope, SharingStarted.Eagerly, MukkUiState())
 
+    /** What the Mukklet display shows. Only computed while the display link collects it. */
+    private val displaySnapshot: StateFlow<NowPlayingSnapshot?> = combine(
+        combine(audioPlayer.state.map { it.currentTrackPath }.distinctUntilChanged(), _tracks) { path, tracks ->
+            path to tracks
+        }.mapLatest { (path, tracks) ->
+            path?.let { ResolvedDisplayTrack(it, displayTrackFor(it, tracks), readCoverArt(it)) }
+        },
+        audioPlayer.state,
+        _settingsState,
+        _selectedFolderEntries
+    ) { resolved, playback, settings, entries ->
+        // `next` follows the path of the resolved track, not the player's newest path, so a
+        // track change never sends the old track with the new track's `next`.
+        NowPlayingSnapshot(
+            track = resolved?.track,
+            next = resolved?.let { nextTrackPreview(entries, it.path, settings) },
+            cover = resolved?.cover,
+            state = DisplayState(
+                status = playback.playbackStatus,
+                positionMs = playback.positionMs,
+                volume = (playback.volume * 100).roundToInt(),
+                repeat = settings.repeatMode,
+                shuffle = settings.shuffleEnabled
+            )
+        )
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(), null)
+
     private var currentTrackIndex: Int = -1
     private var watcherCollectionJob: Job? = null
     private var waveformJob: Job? = null
@@ -109,6 +149,7 @@ class MukkViewModel(
         restoreSettings()
         restorePlayingTrack()
         loadAudioDevices()
+        startDisplayLink()
     }
 
     fun rescan() {
@@ -252,16 +293,10 @@ class MukkViewModel(
                 }
             }
 
-            currentIdx < 0 -> 0
-            currentIdx + 1 >= entries.size -> {
-                if (settings.repeatMode == RepeatMode.ALL) 0
-                else {
-                    stop()
-                    return
-                }
+            else -> nextIndexInOrder(entries.size, currentIdx, settings.repeatMode) ?: run {
+                stop()
+                return
             }
-
-            else -> currentIdx + 1
         }
 
         val next = entries[nextIdx]
@@ -270,6 +305,30 @@ class MukkViewModel(
         audioPlayer.play(next.file.absolutePath)
         loadNowPlayingExtras(next.file.absolutePath)
         savePlayingTrack(next.file.absolutePath)
+    }
+
+    /** The non-shuffle pick of [nextTrack]: `null` means "end of folder, stop". */
+    private fun nextIndexInOrder(size: Int, currentIdx: Int, repeatMode: RepeatMode): Int? = when {
+        currentIdx < 0 -> 0
+        currentIdx + 1 >= size -> if (repeatMode == RepeatMode.ALL) 0 else null
+        else -> currentIdx + 1
+    }
+
+    /** What [nextTrack] would play, without playing it. `null` when shuffle makes it unknown or nothing follows. */
+    private fun nextTrackPreview(entries: List<FileEntry>, currentPath: String?, settings: SettingsState): NextTrack? {
+        val currentIdx = entries.indexOfFirst { it.file.absolutePath == currentPath }
+        val nextIdx = when {
+            entries.isEmpty() -> null
+            settings.repeatMode == RepeatMode.ONE -> currentIdx.takeIf { it >= 0 }
+            settings.shuffleEnabled -> null
+            else -> nextIndexInOrder(entries.size, currentIdx, settings.repeatMode)
+        }
+        return nextIdx?.let { entries[it] }?.let { entry ->
+            NextTrack(
+                title = entry.trackData?.title?.takeIf { it.isNotBlank() } ?: entry.file.nameWithoutExtension,
+                artist = entry.trackData?.artist.orEmpty()
+            )
+        }
     }
 
     fun previousTrack() {
@@ -299,6 +358,16 @@ class MukkViewModel(
     fun setResumeMode(mode: ResumeMode) {
         _settingsState.update { it.copy(resumeMode = mode) }
         preferencesManager.resumeMode = mode
+    }
+
+    fun setMukkletEnabled(enabled: Boolean) {
+        _settingsState.update { it.copy(mukkletEnabled = enabled) }
+        preferencesManager.mukkletEnabled = enabled
+    }
+
+    fun setMukkletHost(host: String) {
+        _settingsState.update { it.copy(mukkletHost = host) }
+        preferencesManager.mukkletHost = host
     }
 
     fun setAudioDevice(deviceName: String) {
@@ -335,7 +404,9 @@ class MukkViewModel(
                 repeatMode = RepeatMode.OFF,
                 shuffleEnabled = false,
                 selectedAudioDevice = "auto",
-                resumeMode = ResumeMode.PAUSED
+                resumeMode = ResumeMode.PAUSED,
+                mukkletEnabled = false,
+                mukkletHost = DEFAULT_MUKKLET_HOST
             )
         }
         audioPlayer.setAudioDevice("auto")
@@ -576,13 +647,17 @@ class MukkViewModel(
         val shuffle = preferencesManager.shuffleEnabled
         val device = preferencesManager.audioDevice
         val resumeMode = preferencesManager.resumeMode
+        val mukkletEnabled = preferencesManager.mukkletEnabled
+        val mukkletHost = preferencesManager.mukkletHost
 
         _settingsState.update {
             it.copy(
                 repeatMode = repeatMode,
                 shuffleEnabled = shuffle,
                 selectedAudioDevice = device,
-                resumeMode = resumeMode
+                resumeMode = resumeMode,
+                mukkletEnabled = mukkletEnabled,
+                mukkletHost = mukkletHost
             )
         }
 
@@ -590,6 +665,62 @@ class MukkViewModel(
             audioPlayer.setAudioDevice(device)
         }
     }
+
+    /** Connects to the Mukklet display while the setting is on; follows host edits after a pause in typing. */
+    private fun startDisplayLink() {
+        viewModelScope.launch {
+            _settingsState
+                .map { if (it.mukkletEnabled) it.mukkletHost.trim() else null }
+                .distinctUntilChanged()
+                .debounce { if (it == null) 0L else HOST_EDIT_DEBOUNCE_MS }
+                .collect { host ->
+                    if (host == null) displayLink.stop() else displayLink.start(host, displaySnapshot)
+                }
+        }
+        viewModelScope.launch {
+            displayLink.commands.collect { handleDisplayCommand(it) }
+        }
+    }
+
+    private fun handleDisplayCommand(command: DisplayCommand) {
+        val playback = audioPlayer.state.value
+        when (command) {
+            DisplayCommand.PlayPause -> togglePlayPause()
+            DisplayCommand.Next -> nextTrack()
+            DisplayCommand.Prev -> previousTrack()
+            is DisplayCommand.Volume -> {
+                val percent = ((playback.volume * 100).roundToInt() + command.delta).coerceIn(0, 100)
+                setVolume(percent / 100.0)
+            }
+            is DisplayCommand.Seek -> if (playback.currentTrackPath != null) {
+                seekTo((playback.positionMs + command.deltaMs).coerceIn(0L, playback.durationMs.coerceAtLeast(0L)))
+            }
+        }
+    }
+
+    private suspend fun displayTrackFor(path: String, tracks: List<MediaTrackData>): DisplayTrack {
+        val file = File(path)
+        val fromDb = tracks.firstOrNull { it.filePath == path }
+        val metadata = if (fromDb == null) metadataReader.read(file) else null
+        return DisplayTrack(
+            id = Integer.toHexString(path.hashCode()),
+            title = (fromDb?.title ?: metadata?.title)?.takeIf { it.isNotBlank() } ?: file.nameWithoutExtension,
+            artist = fromDb?.artist ?: metadata?.artist.orEmpty(),
+            album = fromDb?.album ?: metadata?.album.orEmpty(),
+            albumArtist = fromDb?.albumArtist ?: metadata?.albumArtist.orEmpty(),
+            year = fromDb?.year ?: metadata?.year ?: 0,
+            genre = fromDb?.genre ?: metadata?.genre.orEmpty(),
+            trackNo = fromDb?.trackNumber ?: metadata?.trackNumber ?: 0,
+            durationMs = fromDb?.duration ?: metadata?.durationMs ?: 0L,
+            format = file.extension.uppercase(),
+            hasCover = false
+        )
+    }
+
+    private suspend fun readCoverArt(path: String): CoverArt? =
+        metadataReader.readArtworkBytes(File(path))?.let { CoverArt(it) }
+
+    private class ResolvedDisplayTrack(val path: String, val track: DisplayTrack, val cover: CoverArt?)
 
     private fun loadAudioDevices() {
         viewModelScope.launch {
@@ -818,5 +949,7 @@ class MukkViewModel(
         val activePlaylistId: Long?
     )
 
-    companion object
+    companion object {
+        private const val HOST_EDIT_DEBOUNCE_MS = 500L
+    }
 }

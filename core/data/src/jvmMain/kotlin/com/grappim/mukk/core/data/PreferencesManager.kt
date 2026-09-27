@@ -1,5 +1,6 @@
 package com.grappim.mukk.core.data
 
+import com.grappim.mukk.core.model.DEFAULT_MUKKLET_HOST
 import com.grappim.mukk.core.model.MukkLogger
 import com.grappim.mukk.core.model.RepeatMode
 import com.grappim.mukk.core.model.ResumeMode
@@ -144,6 +145,14 @@ class PreferencesManager {
     var playlistActiveId: Long
         get() = getLong("playlist.activeId", 0L)
         set(value) = set("playlist.activeId", value)
+
+    var mukkletEnabled: Boolean
+        get() = getBoolean("mukklet.enabled", false)
+        set(value) = set("mukklet.enabled", value)
+
+    var mukkletHost: String
+        get() = getString("mukklet.host", DEFAULT_MUKKLET_HOST)
+        set(value) = set("mukklet.host", value)
 
     // --- Public utility ---
 

@@ -1,0 +1,7 @@
+{
+  "type": "hello",
+  "v": 1,
+  "device": "mukklet-oled",
+  "cover": { "w": 64, "h": 64, "format": "mono1" },
+  "maxChunk": 4096
+}

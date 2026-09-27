@@ -11,6 +11,7 @@ kotlin {
             implementation(projects.core.model)
             implementation(projects.core.scanner)
             implementation(projects.core.data)
+            implementation(projects.core.mukklet)
 
             implementation(libs.kotlinx.collections)
 

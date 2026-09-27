@@ -34,6 +34,14 @@ library modules that hold the non-UI logic. Module boundaries are enforced by wh
   `DatabaseInit`) + `PreferencesManager`; the only module that imports Exposed
 - `core:player/` — `AudioPlayer` (GStreamer `PlayBin` wrapper) + `WaveformExtractor`
 - `core:scanner/` — `FileScanner`, `FileSystemWatcher`, `MetadataReader` (JAudioTagger)
+- `core:mukklet/` — link to the Mukklet ESP32 now-playing display (`../esp32-mukklet`):
+  protocol messages (`ProtocolMessages`, `kotlinx-serialization-json` tree API), `CoverEncoder`
+  (`java.awt.image`: crop, scale, `mono1`/`rgb565`) and the `DisplayLink` WebSocket client (JDK
+  `java.net.http`, reconnect with backoff). `MukkViewModel` feeds it a `NowPlayingSnapshot` flow
+  (with the raw art bytes from `MetadataReader.readArtworkBytes()`) and maps its
+  `DisplayCommand`s to the transport actions; settings `mukklet.enabled`/`mukklet.host`. The
+  link encodes the cover in the format the display's `hello` asks for and sets `hasCover` from
+  the result. See `docs/issues/2026-09-27-mukklet-display-link.md`
 
 ### Source Layout
 ```
@@ -90,7 +98,7 @@ core/player/src/jvmMain/kotlin/com/grappim/mukk/core/model/player/
 core/scanner/src/jvmMain/kotlin/com/grappim/mukk/core/model/scanner/
 ├── FileScanner.kt         # Recursive directory scanner, delegates DB ops to TrackRepository
 ├── FileSystemWatcher.kt   # WatchService wrapper: real-time filesystem monitoring, emits FileSystemEvents
-└── MetadataReader.kt      # JAudioTagger wrapper: AudioMetadata, readAlbumArt(), readLyrics()
+└── MetadataReader.kt      # JAudioTagger wrapper: read() → AudioMetadata, readNowPlayingExtras() (art + lyrics), readArtworkBytes()
 ```
 
 ## UI Architecture — Three-Panel Layout
@@ -98,7 +106,7 @@ Three panels side by side, with a transport bar at the bottom:
 
 1. **Folder Tree** (`FolderTreePanel`, default 250dp, resizable 150–450dp) — expandable tree showing only folders that contain audio files (recursively). Header has "Mukk" title + open folder button. Single-click = select folder (shows tracks), double-click = expand/collapse children. Arrow icon also toggles expand. Playing folder gets subtle highlight + play indicator.
 2. **Track List** (`TrackListPanel`, fills remaining space) — columnar table of audio files from the selected folder. Columns: #, File Name, Title, Album, Artist, Duration. Single-click = select/highlight track, double-click = play. Three visual states: playing (primary), selected (surfaceVariant), default.
-3. **Now-Playing Panel** (`NowPlayingPanel`, default 280dp, resizable 150–450dp) — shows album art (square, rounded corners, placeholder music icon when missing) and track metadata (title, artist, album, genre + year) at full, unshrinkable size, then a divider, then a scrollable lyrics area filling whatever space is left below it (`weight(1f)`, no manual sizing — metadata is never squeezed to make room). Album art and lyrics read on-the-fly from audio files via `MetadataReader.readAlbumArt()` / `readLyrics()` when playback starts. Shows "No track playing" placeholder when idle.
+3. **Now-Playing Panel** (`NowPlayingPanel`, default 280dp, resizable 150–450dp) — shows album art (square, rounded corners, placeholder music icon when missing) and track metadata (title, artist, album, genre + year) at full, unshrinkable size, then a divider, then a scrollable lyrics area filling whatever space is left below it (`weight(1f)`, no manual sizing — metadata is never squeezed to make room). Album art and lyrics read on-the-fly from audio files via `MetadataReader.readNowPlayingExtras()` when playback starts. Shows "No track playing" placeholder when idle.
 
 Panel dividers are draggable (`DraggableDivider` in MainLayout.kt) with `E_RESIZE_CURSOR` hover icon. Widths persist to PreferencesManager (`panel.leftWidth`, `panel.rightWidth`).
 
@@ -126,21 +134,27 @@ in SQLite via `WaveformRepository` so repeat plays skip re-decoding.
 - DB access: all Exposed ORM operations go through `TrackRepository` (and `WaveformRepository`, `PlaylistRepository`). Only `core:data` module files import Exposed. When adding new DB operations, add methods to the relevant repository — never use `transaction {}` directly in ViewModel or scanner code.
 - DB location: `~/.local/share/mukk/library.db`
 - Preferences file: `~/.local/share/mukk/preferences.properties`
-- Logging: use `MukkLogger` (`object` singleton, NOT Koin-managed). Use `error`/`warn`/`debug` with `Throwable` to preserve stack traces. A JVM-fatal error (`OutOfMemoryError`, a native crash) never reaches `mukk.log` — it's thrown from an uncaught-exception handler or the AWT event thread, outside any `MukkLogger` call, and only shows up in the run command's own stdout/stderr (the `:composeApp:run` console, or its `tee`d log when launched via `run_in_background`).
+- Logging: use `MukkLogger` (`object` singleton, NOT Koin-managed). Only WARN/ERROR go to
+  `mukk.log`; DEBUG/INFO go to the console only (the `:composeApp:run` output). Pass the `Throwable` to `error`/`warn` to keep stack traces; `debug`/`info` take no `Throwable`, so put `e.message` in the text. A JVM-fatal error (`OutOfMemoryError`, a native crash) never reaches `mukk.log` — it's thrown from an uncaught-exception handler or the AWT event thread, outside any `MukkLogger` call, and only shows up in the run command's own stdout/stderr (the `:composeApp:run` console, or its `tee`d log when launched via `run_in_background`).
 - Adding new settings: field in `SettingsState` → update `_settingsState` in ViewModel → persist via `preferencesManager.set()` → restore in `restoreSettings()` → expose in `SettingsDialog.kt`
 - Compose Desktop focus: global key events require `FocusRequester` + `.focusable()` + `LaunchedEffect` to request focus. Without this, `onPreviewKeyEvent` won't fire until the user clicks something.
 
 ## Build Commands
 - Compile check: `./gradlew composeApp:jvmMainClasses` (NOT `composeApp:classes` — that task doesn't exist)
 - Lint: `./gradlew detekt` — wired into `check` for every module. Pre-existing findings are grandfathered per-module in `config/detekt/baseline/*.xml`; only new findings fail the build. Regenerate a module's baseline after deliberately accepting new findings: `./gradlew :module:path:detektBaseline`.
-- Tests: `./gradlew :core:data:jvmTest` — only `core:data` has a `jvmTest` source set so far (added for `PlaylistRepository`); other modules have none yet.
+- Tests: `./gradlew :core:data:jvmTest :core:mukklet:jvmTest` — only `core:data` and `core:mukklet` have a `jvmTest` source set so far; other modules have none yet.
 - Run the app: `./gradlew :composeApp:run`. In the background (`run_in_background`), the wrapper
   process exits quickly (code 0) once the app JVM has launched — that's not the app closing,
   it's a separate long-lived `java ... com.grappim.mukk.MainKt` process (check with `ps aux`).
   Kill that process, not the wrapper, to close the app from a script. `pkill -f
   "com.grappim.mukk.MainKt"` reliably reports exit code 144 in this sandbox even when the kill
   succeeded — it is not evidence of failure; check `ps aux` afterward instead of trusting the
-  exit code.
+  exit code. It also aborts every later command chained with `;` in the same shell call, so run
+  `pkill` in a call of its own.
+- Before `:composeApp:run`, check `ps aux | grep /opt/mukk` for the user's packaged install.
+  If it runs, it holds the `SingleInstance` lock: the dev run logs "Another instance is already
+  running" and exits 0 without starting a JVM. The two builds also share
+  `preferences.properties`. Ask the user to close the packaged app; don't kill it.
 - Before manually verifying a fix against an already-running `:composeApp:run` instance, confirm
   it actually has the new code loaded: compare the running process's start time (`ps -o lstart=
   -p <pid>`) against the relevant `build/classes/kotlin/jvm/main/**/*.class` file's mtime. A JVM
@@ -240,7 +254,7 @@ in SQLite via `WaveformRepository` so repeat plays skip re-decoding.
 - Prefer `kotlinx-collections-immutable` (`ImmutableList`, `persistentListOf()`) over `List`/`MutableList` in state classes and Composable parameters for stable recomposition
 
 ## Dependency Injection (Koin)
-All dependencies are wired via Koin in `di/AppModule.kt`. `DatabaseInit`, `PreferencesManager`, `MetadataReader`, `TrackRepository`, `WaveformRepository`, `PlaylistRepository`, `FileScanner`, `AudioPlayer`, `FileSystemWatcher`, `WaveformExtractor` are `single{}` singletons. `MukkViewModel` is registered via `viewModel{}`. `main.kt` calls `startKoin` before the Compose window. `App.kt` retrieves `MukkViewModel` via `koinViewModel()` and `PreferencesManager` via `koinInject()`. When adding a new service: create the class → register in `appModule` → inject via constructor (for non-Compose code) or `koinInject()` (for composables).
+All dependencies are wired via Koin in `di/AppModule.kt`. `DatabaseInit`, `PreferencesManager`, `MetadataReader`, `TrackRepository`, `WaveformRepository`, `PlaylistRepository`, `FileScanner`, `AudioPlayer`, `FileSystemWatcher`, `WaveformExtractor`, `DisplayLink` are `single{}` singletons. `MukkViewModel` is registered via `viewModel{}`. `main.kt` calls `startKoin` before the Compose window. `App.kt` retrieves `MukkViewModel` via `koinViewModel()` and `PreferencesManager` via `koinInject()`. When adding a new service: create the class → register in `appModule` → inject via constructor (for non-Compose code) or `koinInject()` (for composables).
 
 ## Callback Flow
 ViewModel exposes functions + StateFlows → `App.kt` collects state via `collectAsState()` and passes lambdas → `MainLayout` forwards to child panels. All UI composables are stateless — they receive data and callbacks as parameters. When adding a new action: add function to ViewModel → wire lambda in App.kt → thread through MainLayout → use in target panel.
@@ -267,6 +281,8 @@ ViewModel exposes functions + StateFlows → `App.kt` collects state via `collec
 | `playback.wasPlaying` | Boolean | `false` | main.kt (saved on window close, for resume-on-startup) |
 | `audio.device` | String | `"auto"` | MukkViewModel |
 | `playlist.activeId` | Long | `0` | main.kt (`0` = none; set by the Default-playlist migration on first run after upgrade) |
+| `mukklet.enabled` | Boolean | `false` | MukkViewModel (Mukklet display link on/off) |
+| `mukklet.host` | String | `"mukklet.local"` | MukkViewModel (display host, may include `:port`) |
 
 ## Completed Features
 - Media library scanner (recursive, JAudioTagger tags, SQLite storage)
