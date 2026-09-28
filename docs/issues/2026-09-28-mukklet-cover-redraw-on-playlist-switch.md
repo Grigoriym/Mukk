@@ -121,7 +121,8 @@ Option A, approved by the user on 2026-09-28.
   two `CoverArt` tests failed before the change (`35 tests, 2 failed`) and pass after it
   (35 tests, 0 failed); `composeApp:jvmMainClasses` and `detekt` pass. Not run end to end
   against `fake_display.py`: a playlist switch needs GUI driving, and the unit tests cover the
-  send decision. The ESP32 device check was asked of the user at hand-off.
+  send decision. Device check: the user confirmed on the ESP32 (2026-09-28) that a playlist switch no
+  longer redraws the cover.
 
 ## What landed
 - `CoverArt` compares by content; `isCoverDue` + `SentCover` in `LinkTiming.kt`;
