@@ -239,7 +239,8 @@ so every part below is protocol-compliant on its own.
   (the listener never sends), not a separate `Channel`. Added a 10 s `hello` timeout and a
   10 s send timeout, both of which drop the connection and retry. The heartbeat ticks every
   1 s, so `state` goes out every 5–6 s. `cover` is skipped for `track: null` (no `trackId`)
-  and for `hello` `format: "none"`. A change of `next` alone resends `track` + `cover`.
+  and for `hello` `format: "none"`. A change of `next` alone resends `track` + `cover` (changed on
+  2026-09-28: now `track` only, see `2026-09-28-mukklet-cover-redraw-on-playlist-switch.md`).
   Pure parts live in `LinkTiming.kt` (`reconnectDelayMs`, `isStateDue`). Added
   `kotlinx-coroutines-core` to the catalog. The manual check ran from a temporary
   `jvmTest` file (no `kotlinc` on this machine), deleted afterwards.
@@ -300,7 +301,8 @@ so every part below is protocol-compliant on its own.
   messages at all, since `hello` says `none`).
 - Landed: the accessor is `MetadataReader.readArtworkBytes(file)`. `NowPlayingSnapshot` gained
   `cover: CoverArt?`; `CoverArt` wraps the bytes and compares by identity (a new tag read is a
-  new cover; no byte compare, no `ArrayInDataClass` finding). The ViewModel reads the art in
+  new cover; no byte compare, no `ArrayInDataClass` finding). Changed on 2026-09-28 to
+  compare by content, see `2026-09-28-mukklet-cover-redraw-on-playlist-switch.md`. The ViewModel reads the art in
   the same `mapLatest` step as the track, so both change together. `DisplayLink` ignores the
   snapshot's `hasCover` and sets it from the encode result. It re-encodes when only `next`
   changes; not cached, as encoding is cheap and runs off the UI thread. The Findings
