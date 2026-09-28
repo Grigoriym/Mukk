@@ -45,9 +45,15 @@ data class NowPlayingSnapshot(
 
 /**
  * The embedded art of [NowPlayingSnapshot.track], as raw image-file bytes. Equality is by
- * identity on purpose: a new read of the tag is a new cover, and the bytes are never compared.
+ * content, so the same tag read again is the same cover. The bytes are compared only when the
+ * two objects differ, so the 1 s tick (same object) costs nothing.
  */
-class CoverArt(val bytes: ByteArray)
+class CoverArt(val bytes: ByteArray) {
+    override fun equals(other: Any?): Boolean =
+        this === other || other is CoverArt && bytes.contentEquals(other.bytes)
+
+    override fun hashCode(): Int = bytes.contentHashCode()
+}
 
 /**
  * WebSocket client for the Mukklet display (`../esp32-mukklet/docs/PROTOCOL.md`). Connects in
@@ -150,7 +156,8 @@ class DisplayLink {
      * The first snapshot after connect sends the full `track` → `cover` → `state` sequence.
      */
     private suspend fun sendLoop(session: Session, snapshots: StateFlow<NowPlayingSnapshot?>) {
-        var sentTrack: Triple<DisplayTrack?, NextTrack?, CoverArt?>? = null
+        var sentTrack: Pair<DisplayTrack?, NextTrack?>? = null
+        var sentCover: SentCover? = null
         var sentState: SentState? = null
         val ticks = flow {
             while (true) {
@@ -159,9 +166,9 @@ class DisplayLink {
             }
         }
         merge(snapshots, ticks).filterNotNull().collect { snapshot ->
-            val trackInfo = Triple(snapshot.track, snapshot.next, snapshot.cover)
-            if (trackInfo != sentTrack) {
-                sendTrack(session, snapshot)
+            val trackInfo = snapshot.track to snapshot.next
+            if (trackInfo != sentTrack || isCoverDue(sentCover, snapshot)) {
+                sentCover = sendTrack(session, snapshot, sentCover)
                 sentTrack = trackInfo
             }
             val now = monotonicMs()
@@ -172,19 +179,30 @@ class DisplayLink {
         }
     }
 
-    /** `track`, then `cover` (pixels or `none: true`) unless the display asked for no art. */
-    private suspend fun sendTrack(session: Session, snapshot: NowPlayingSnapshot) {
+    /**
+     * `track`, then `cover` (pixels or `none: true`) when [isCoverDue] and the display asked
+     * for art. Without a new cover, `hasCover` repeats the last one. Returns what was sent.
+     */
+    private suspend fun sendTrack(session: Session, snapshot: NowPlayingSnapshot, sentCover: SentCover?): SentCover {
         val spec = session.hello.cover
-        val pixels = snapshot.cover?.takeIf { snapshot.track != null }?.let { CoverEncoder.encode(it.bytes, spec) }
-        val track = snapshot.track?.copy(hasCover = pixels != null)
+        val coverDue = isCoverDue(sentCover, snapshot)
+        val pixels = if (coverDue) {
+            snapshot.cover?.takeIf { snapshot.track != null }?.let { CoverEncoder.encode(it.bytes, spec) }
+        } else {
+            null
+        }
+        val encoded = if (coverDue) pixels != null else sentCover?.encoded == true
+        val track = snapshot.track?.copy(hasCover = encoded)
+        val sent = SentCover(snapshot.track?.id, snapshot.cover, encoded)
         session.send(ProtocolMessages.track(track, snapshot.next))
-        if (track == null || spec.format == CoverFormat.NONE) return
+        if (!coverDue || track == null || spec.format == CoverFormat.NONE) return sent
         if (pixels == null) {
             session.send(ProtocolMessages.coverNone(track.id))
         } else {
             session.send(ProtocolMessages.cover(track.id, spec, pixels.size))
             CoverEncoder.chunks(pixels, session.hello.maxChunk).forEach { session.sendBinary(it) }
         }
+        return sent
     }
 
     private class Session(
