@@ -23,6 +23,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateMapOf
@@ -87,38 +88,41 @@ fun PlaylistTabBar(
         verticalAlignment = Alignment.CenterVertically
     ) {
         order.forEach { playlist ->
-            PlaylistTab(
-                playlist = playlist,
-                isActive = playlist.id == activePlaylistId,
-                dragOffsetX = if (playlist.id == draggingId) dragOffsetX else 0f,
-                onClick = {
-                    val now = System.currentTimeMillis()
-                    if (playlist.id != activePlaylistId && now - lastSelectTime >= SELECT_DEBOUNCE_MS) {
-                        lastSelectTime = now
-                        onSelectPlaylist(playlist.id)
+            // Keyed so a reorder moves the tab, and its running drag gesture, with its playlist.
+            key(playlist.id) {
+                PlaylistTab(
+                    playlist = playlist,
+                    isActive = playlist.id == activePlaylistId,
+                    dragOffsetX = if (playlist.id == draggingId) dragOffsetX else 0f,
+                    onClick = {
+                        val now = System.currentTimeMillis()
+                        if (playlist.id != activePlaylistId && now - lastSelectTime >= SELECT_DEBOUNCE_MS) {
+                            lastSelectTime = now
+                            onSelectPlaylist(playlist.id)
+                        }
+                    },
+                    onRename = { newName -> onRenamePlaylist(playlist.id, newName) },
+                    onClose = { onDeletePlaylist(playlist.id) },
+                    onWidthChange = { widthPx -> tabWidths[playlist.id] = widthPx },
+                    onDragStart = {
+                        draggingId = playlist.id
+                        dragOffsetX = 0f
+                    },
+                    onDrag = { delta ->
+                        dragOffsetX += delta
+                        val result = reorderedAfterDrag(order, playlist.id, dragOffsetX, tabWidths)
+                        order = result.order
+                        dragOffsetX = result.offsetX
+                    },
+                    onDragEnd = {
+                        draggingId = null
+                        dragOffsetX = 0f
+                        if (order.map { it.id } != playlists.map { it.id }) {
+                            onReorderPlaylists(order.map { it.id })
+                        }
                     }
-                },
-                onRename = { newName -> onRenamePlaylist(playlist.id, newName) },
-                onClose = { onDeletePlaylist(playlist.id) },
-                onWidthChange = { widthPx -> tabWidths[playlist.id] = widthPx },
-                onDragStart = {
-                    draggingId = playlist.id
-                    dragOffsetX = 0f
-                },
-                onDrag = { delta ->
-                    dragOffsetX += delta
-                    val result = reorderedAfterDrag(order, playlist.id, dragOffsetX, tabWidths)
-                    order = result.order
-                    dragOffsetX = result.offsetX
-                },
-                onDragEnd = {
-                    draggingId = null
-                    dragOffsetX = 0f
-                    if (order.map { it.id } != playlists.map { it.id }) {
-                        onReorderPlaylists(order.map { it.id })
-                    }
-                }
-            )
+                )
+            }
         }
 
         IconButton(onClick = onCreatePlaylist, modifier = Modifier.size(28.dp)) {
