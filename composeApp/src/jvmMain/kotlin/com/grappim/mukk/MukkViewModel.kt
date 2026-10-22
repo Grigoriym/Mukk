@@ -133,6 +133,8 @@ class MukkViewModel(
     private var watcherCollectionJob: Job? = null
     private var waveformJob: Job? = null
     private var activatePlaylistJob: Job? = null
+    private val playlistBrowseStates = mutableMapOf<Long, PlaylistBrowseState>()
+    private var saveBrowseStateJob: Job? = null
     private val pendingChangedDirs = mutableMapOf<String, Job>()
     private val pendingDeletedPaths = mutableSetOf<String>()
     private var pendingDeleteJob: Job? = null
@@ -485,6 +487,21 @@ class MukkViewModel(
         preferencesManager.folderTreeRootPath = state.rootPath ?: ""
         preferencesManager.folderTreeExpandedPaths = state.expandedPaths
         preferencesManager.folderTreeSelectedPath = state.selectedPath ?: ""
+        val activeId = _activePlaylistId.value
+        val selectedPath = state.selectedPath
+        if (activeId != null && selectedPath != null) {
+            saveBrowseState(activeId, PlaylistBrowseState(selectedPath, state.expandedPaths))
+        }
+    }
+
+    private fun saveBrowseState(activeId: Long, browseState: PlaylistBrowseState) {
+        if (playlistBrowseStates.put(activeId, browseState) == browseState) return
+        val previousSave = saveBrowseStateJob
+        saveBrowseStateJob = viewModelScope.launch {
+            // Chained so a slower earlier write can never land after this one.
+            previousSave?.join()
+            playlistRepository.saveBrowseState(activeId, browseState)
+        }
     }
 
     private fun restoreFolderTreeState() {
@@ -515,6 +532,7 @@ class MukkViewModel(
         viewModelScope.launch {
             val playlists = playlistRepository.getAll().toImmutableList()
             _playlists.value = playlists
+            playlistBrowseStates.putAll(playlistRepository.getBrowseStates())
 
             val savedId = preferencesManager.playlistActiveId.takeIf { it != 0L }
             val active = playlists.firstOrNull { it.id == savedId }
@@ -537,7 +555,14 @@ class MukkViewModel(
 
     fun selectPlaylist(id: Long) {
         val playlist = _playlists.value.firstOrNull { it.id == id } ?: return
-        activatePlaylist(playlist, browsePath = playlist.folderPath, expandedPaths = setOf(playlist.folderPath))
+        val saved = playlistBrowseStates[id]
+        val browsePath = saved?.selectedPath?.takeIf { File(it).isDirectory } ?: playlist.folderPath
+        val expandedPaths = saved?.expandedPaths
+            ?.filter { File(it).isDirectory }
+            ?.toSet()
+            ?.ifEmpty { null }
+            ?: setOf(playlist.folderPath)
+        activatePlaylist(playlist, browsePath = browsePath, expandedPaths = expandedPaths)
     }
 
     fun createPlaylist(folderPath: String) {
@@ -575,6 +600,7 @@ class MukkViewModel(
             }
 
             playlistRepository.delete(id)
+            playlistBrowseStates.remove(id)
             val remaining = playlistRepository.getAll().toImmutableList()
             _playlists.value = remaining
 

@@ -114,3 +114,5 @@ is gone (the proposed default). Open question 2: yes, positions survive a restar
   `playlists` row after browsing. **Manual** (the owner): browse an album in playlist P, switch
   to Q, switch back. Expected: the same album is selected and the same folders are expanded,
   also after a restart.
+- **Pending:** code committed; `composeApp:jvmMainClasses detekt` pass. The `sqlite3` check and
+  the manual check still need a running dev build. Tick this part once they pass.
