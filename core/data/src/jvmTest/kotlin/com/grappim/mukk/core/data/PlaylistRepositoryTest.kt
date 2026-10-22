@@ -1,6 +1,8 @@
 package com.grappim.mukk.core.data
 
+import com.grappim.mukk.core.model.PlaylistBrowseState
 import kotlinx.coroutines.runBlocking
+import java.sql.DriverManager
 import java.io.File
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
@@ -99,5 +101,43 @@ class PlaylistRepositoryTest {
         val deleted = playlistRepository.delete(id = 999L)
 
         assertTrue(!deleted)
+    }
+
+    @Test
+    fun `saveBrowseState is returned by getBrowseStates`() = runBlocking {
+        val first = playlistRepository.create("Default", "/music/default")
+        playlistRepository.create("Podcasts", "/music/podcasts")
+        val state = PlaylistBrowseState(
+            selectedPath = "/music/default/album",
+            expandedPaths = setOf("/music/default", "/music/default/album")
+        )
+
+        val saved = playlistRepository.saveBrowseState(first.id, state)
+
+        assertTrue(saved)
+        assertEquals(mapOf(first.id to state), playlistRepository.getBrowseStates())
+    }
+
+    @Test
+    fun `existing database without browse columns gains them and keeps its rows`() = runBlocking {
+        dbFile.delete()
+        DriverManager.getConnection("jdbc:sqlite:${dbFile.absolutePath}").use { connection ->
+            connection.createStatement().use { statement ->
+                statement.executeUpdate(
+                    "CREATE TABLE playlists (id INTEGER PRIMARY KEY AUTOINCREMENT, name VARCHAR(256) NOT NULL, " +
+                        "folder_path VARCHAR(1024) NOT NULL, sort_order INT DEFAULT 0 NOT NULL)"
+                )
+                statement.executeUpdate(
+                    "INSERT INTO playlists (name, folder_path, sort_order) VALUES ('Old', '/music/old', 0)"
+                )
+            }
+        }
+
+        val repository = PlaylistRepository(DatabaseInit(dbFile), trackRepository, waveformRepository)
+        val old = repository.getAll().single()
+        repository.saveBrowseState(old.id, PlaylistBrowseState("/music/old/album", setOf("/music/old")))
+
+        assertEquals("Old", old.name)
+        assertEquals("/music/old/album", repository.getBrowseStates().getValue(old.id).selectedPath)
     }
 }

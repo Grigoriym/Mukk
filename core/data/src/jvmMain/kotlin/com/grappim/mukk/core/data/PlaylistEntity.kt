@@ -11,6 +11,8 @@ class PlaylistEntity(id: EntityID<Long>) : LongEntity(id) {
     var name by PlaylistsTable.name
     var folderPath by PlaylistsTable.folderPath
     var sortOrder by PlaylistsTable.sortOrder
+    var selectedPath by PlaylistsTable.selectedPath
+    var expandedPaths by PlaylistsTable.expandedPaths
 }
 
 fun PlaylistEntity.toData() = Playlist(
