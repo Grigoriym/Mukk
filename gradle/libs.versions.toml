@@ -1,5 +1,5 @@
 [versions]
-version-name = "1.1.2"
+version-name = "1.1.3"
 app-pkg = "com.grappim.mukk"
 app-name = "Mukk"
 app-vendor = "grappim"
