@@ -85,7 +85,8 @@ core/data/src/jvmMain/kotlin/com/grappim/mukk/core/data/
 ├── MediaTracks.kt, MediaTrackEntity.kt   # Exposed table + entity + MediaTrackData.toData()
 ├── TrackRepository.kt     # DB ops: getAllTracks, findByPath, existsByPath, insertIfAbsent, deleteByPath, deleteAll, findByPathPrefix, deleteByPathPrefix
 ├── WaveformCacheTable.kt, WaveformCacheEntity.kt, WaveformRepository.kt  # cached waveform peaks per track; also deleteByPathPrefix
-├── PlaylistsTable.kt, PlaylistEntity.kt, PlaylistRepository.kt  # named, saved folder links (see docs/issues/2026-09-15-playlists-and-queue.md)
+├── PlaylistsTable.kt, PlaylistEntity.kt, PlaylistRepository.kt  # named, saved folder links (see docs/issues/2026-09-15-playlists-and-queue.md),
+│                            plus each playlist's last folder-tree position (`selected_path`, `expanded_paths`)
 └── PreferencesManager.kt  # Simple key-value prefs (~/.local/share/mukk/preferences.properties)
 
 core/data/src/jvmTest/kotlin/com/grappim/mukk/core/data/
@@ -183,6 +184,11 @@ in SQLite via `WaveformRepository` so repeat plays skip re-decoding.
 ### Exposed ORM v1
 - Critical imports differ from pre-v1: `deleteAll` → `org.jetbrains.exposed.v1.jdbc.deleteAll`, `eq` → `org.jetbrains.exposed.v1.core.eq`, `like` → `org.jetbrains.exposed.v1.core.like`, `deleteWhere` → `org.jetbrains.exposed.v1.jdbc.deleteWhere`, `transaction` → `org.jetbrains.exposed.v1.jdbc.transactions.transaction`
 - `transaction()` return type inference can fail — may need explicit type parameter
+- `SchemaUtils.create` skips a table that already exists, so a column added to a table later
+  never reaches an existing `library.db`. `DatabaseInit` runs
+  `SchemaUtils.addMissingColumnsStatements(table).forEach { exec(it) }` for that; add the table
+  there. That function is not deprecated in Exposed 1.0.0, while `createMissingTablesAndColumns`
+  is (a `@Suppress` would trip guardrails).
 - `SqlExpressionBuilder.eq`/`.like` need explicit import for `find()` queries; `deleteWhere` is the bulk-delete-by-predicate sibling of `deleteAll`, for deleting by a column condition instead of clearing a whole table
 - `EntityClass.new {}` lambda properties should use `this.` prefix to disambiguate
 - `core:data`'s `jvmMain` never declares `kotlinx-coroutines-core` itself — it arrives transitively via Exposed. `TrackRepository`/`WaveformRepository`/`PlaylistRepository`'s `withContext(Dispatchers.IO)` calls rely on that; swapping out Exposed would silently break coroutine usage until it's added explicitly
@@ -211,6 +217,11 @@ in SQLite via `WaveformRepository` so repeat plays skip re-decoding.
   Key on a stable value (`Unit`, or a stable id) instead, and read the latest callbacks inside the
   gesture block via `rememberUpdatedState`. Found in `PlaylistTabBar.kt`'s drag-to-reorder: it
   visually reordered tabs but the reorder was never persisted, because `onDragEnd` never ran.
+  The flip side: with `rememberUpdatedState`, the gesture calls whatever callbacks its slot holds
+  *now*. A list that reorders while a gesture runs must wrap each item in `key(item.id)`, or after
+  the first reorder the gesture drives the neighbor's callbacks. Found in the same tab bar: a
+  multi-step drag swapped the first two tabs back and forth
+  (`docs/issues/2026-10-22-playlist-tab-drag-oscillates.md`).
 - Don't nest two `Modifier.verticalScroll()` containers (a scrollable parent wrapping a
   scrollable child) to make an "outer scrolls if the inner content doesn't fit" fallback —
   mouse-wheel input over the inner scrollable gets captured by the outer one on Compose Desktop
@@ -382,6 +393,11 @@ conversation can pick up any single part cold.
 feature branch and open a PR against `master`; the branch ruleset (PRs required, `guardrails` +
 `build` status checks) then gates the merge. The owner's bypass on that ruleset still technically
 allows a direct push — don't use it as the default path.
+
+**Fixes the owner will test together go on one branch.** The owner tests by building a `.deb`
+from whatever branch is checked out. Two fixes from one request on two branches meant the
+package held only one of them, and the other looked unfixed (2026-10-22). Put them on one
+branch and one PR, and say which branch to build from.
 
 **When told to proceed with no more detail than that** ("let's proceed with the task", "do
 the next part," etc.):

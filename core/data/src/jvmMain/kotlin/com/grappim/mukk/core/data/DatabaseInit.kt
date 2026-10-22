@@ -21,6 +21,8 @@ class DatabaseInit(
 
         transaction(database) {
             SchemaUtils.create(MediaTracks, WaveformCacheTable, PlaylistsTable)
+            // `create` skips tables that already exist, so columns added later need this.
+            SchemaUtils.addMissingColumnsStatements(PlaylistsTable).forEach { exec(it) }
         }
     }
 }

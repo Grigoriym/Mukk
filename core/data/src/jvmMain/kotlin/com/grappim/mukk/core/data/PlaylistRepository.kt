@@ -1,6 +1,7 @@
 package com.grappim.mukk.core.data
 
 import com.grappim.mukk.core.model.Playlist
+import com.grappim.mukk.core.model.PlaylistBrowseState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
@@ -41,6 +42,29 @@ class PlaylistRepository(
             idsInNewOrder.forEachIndexed { index, id ->
                 PlaylistEntity.findById(id)?.sortOrder = index
             }
+        }
+    }
+
+    /** Saved browse positions, only for playlists that have one. */
+    suspend fun getBrowseStates(): Map<Long, PlaylistBrowseState> = withContext(Dispatchers.IO) {
+        transaction(databaseInit.database) {
+            PlaylistEntity.all()
+                .filter { it.selectedPath.isNotEmpty() }
+                .associate { entity ->
+                    entity.id.value to PlaylistBrowseState(
+                        selectedPath = entity.selectedPath,
+                        expandedPaths = entity.expandedPaths.split("|").filter { it.isNotEmpty() }.toSet()
+                    )
+                }
+        }
+    }
+
+    suspend fun saveBrowseState(id: Long, state: PlaylistBrowseState): Boolean = withContext(Dispatchers.IO) {
+        transaction(databaseInit.database) {
+            val entity = PlaylistEntity.findById(id) ?: return@transaction false
+            entity.selectedPath = state.selectedPath
+            entity.expandedPaths = state.expandedPaths.joinToString("|")
+            true
         }
     }
 
