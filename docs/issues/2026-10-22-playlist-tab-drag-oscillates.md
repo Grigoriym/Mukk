@@ -1,6 +1,6 @@
 # 2026-10-22 — Dragging a playlist tab past two neighbors oscillates
 
-**Status:** In progress
+**Status:** Done
 **Link:** none (reported in chat)   **Updated:** 2026-10-22
 
 ## Report
@@ -90,9 +90,11 @@ Option A, approved by the owner in chat on 2026-10-22 ("Please address two bugs"
 
 ## Implementation plan
 
-### Part 1 — Key each tab by playlist id [ ]
+### Part 1 — Key each tab by playlist id [x]
 - In `PlaylistTabBar.kt`, wrap the `PlaylistTab(...)` call inside `order.forEach` in
   `key(playlist.id) { ... }`.
 - **Verify:** `./gradlew composeApp:jvmMainClasses detekt`. Then **manual** (the owner, since
   `xdotool` drags don't reach Compose): with tabs `A,B,C`, drag `A` to the end in one drag.
   Expected: `B,C,A`, with no back-and-forth, and the order survives a restart.
+- **Landed:** as planned. `composeApp:jvmMainClasses detekt` pass. The owner confirmed the
+  multi-step drag works in a packaged build of this branch on 2026-10-22.
