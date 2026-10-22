@@ -1,6 +1,6 @@
 # 2026-10-22 — Switching playlists resets the browsed folder to the playlist root
 
-**Status:** In progress
+**Status:** Done
 **Link:** none (reported in chat)   **Updated:** 2026-10-22
 
 ## Report
@@ -104,7 +104,7 @@ is gone (the proposed default). Open question 2: yes, positions survive a restar
 - **Landed:** as planned. 7/7 tests pass. With the migration line commented out, the old-schema
   test fails (1 of 7), so it does exercise the migration.
 
-### Part 2 — Restore the position on a playlist switch [ ]
+### Part 2 — Restore the position on a playlist switch [x]
 - `MukkViewModel`: keep an in-memory `Map<Long, PlaylistBrowseState>`, loaded in
   `restoreActivePlaylist()`. `saveFolderTreeState()` updates the active playlist's entry and
   writes it through `saveBrowseState`. `selectPlaylist()` uses the saved state, keeping only
@@ -114,5 +114,8 @@ is gone (the proposed default). Open question 2: yes, positions survive a restar
   `playlists` row after browsing. **Manual** (the owner): browse an album in playlist P, switch
   to Q, switch back. Expected: the same album is selected and the same folders are expanded,
   also after a restart.
-- **Pending:** code committed; `composeApp:jvmMainClasses detekt` pass. The `sqlite3` check and
-  the manual check still need a running dev build. Tick this part once they pass.
+- **Landed:** as planned. `composeApp:jvmMainClasses detekt` pass. After the owner browsed with
+  a packaged build, `playlists` held saved rows, for example Mantas →
+  `/media/gregory/g/music/Mantas/2004 - Zero Tolerance`. The owner confirmed the switch-back
+  in the app on 2026-10-22. This branch also carries the tab-drag fix
+  (`2026-10-22-playlist-tab-drag-oscillates.md`), merged in so one package build had both.
