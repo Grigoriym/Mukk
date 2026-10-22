@@ -328,6 +328,7 @@ ViewModel exposes functions + StateFlows → `App.kt` collects state via `collec
 - Single-instance app lock: relaunching focuses the existing window instead of opening a second one (`SingleInstance.kt`)
 - Multi-module split: non-UI logic lives in `core:model`/`core:data`/`core:player`/`core:scanner`; `composeApp` holds only UI + ViewModel + DI wiring
 - Release process: `release-prepare` → `release-finalize` → `release.yml` GitHub Actions chain, builds `.deb`/`.rpm` and publishes a GitHub Release (see "Release Process" below); v1.0.2 shipped this way
+- Playlist tabs: drag-to-reorder, and each playlist reopens at its last folder-tree position (saved in the `playlists` table)
 
 ## Backlog
 
@@ -458,6 +459,11 @@ Three chained workflows (`docs/issues/2026-09-15-release-process.md` has the ful
 `vX.Y.Z` and pushes → the tag push triggers `release.yml`, which builds `.deb`/`.rpm` and
 publishes a GitHub Release. `release.yml` also accepts `workflow_dispatch` with a `tag` input, as
 a manual fallback.
+
+From the CLI (v1.1.3 shipped this way, end to end): `gh workflow run release-prepare.yml -f
+version=X.Y.Z` → wait for the `release/vX.Y.Z` PR's `guardrails` + `build` checks → merge it with
+`gh api repos/Grigoriym/Mukk/pulls/<n>/merge -X PUT -f merge_method=merge` → watch the `Release`
+run on the tag. The `.deb`/`.rpm` appear on the GitHub Release when that run is green.
 
 One one-time repo setting this chain depends on, not visible from the code:
 - Secret `RELEASE_PAT` (fine-grained PAT, scoped to this repo only, `Contents: Read and write`
