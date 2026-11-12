@@ -1,6 +1,6 @@
 # 2026-11-12 — Track list shows duplicated tracks after startup
 
-**Status:** In progress
+**Status:** Done
 **Link:** — (reported in chat)   **Updated:** 2026-11-12
 
 ## Report
@@ -105,7 +105,7 @@ the given rows and keeps the rest; fails before the change because the method do
 "1980 - Telephone" folder restored and sees 9 tracks, not 18.
 
 Landed: as planned. `:core:data:jvmTest` passes (2 new tests; they failed to compile before the
-method existed), `composeApp:jvmMainClasses` and `detekt` pass. The manual check is pending the
-owner. Note: the first startup after this change prunes stale rows only under the active
+method existed), `composeApp:jvmMainClasses` and `detekt` pass. The owner confirmed the manual check
+on the built `.deb` (9 tracks, not 18). Shipped in v1.1.4. Note: the first startup after this change prunes stale rows only under the active
 playlist's root. Other folders are cleaned when they are scanned (folder click, tab switch, rescan).
 
