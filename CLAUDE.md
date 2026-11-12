@@ -151,6 +151,9 @@ in SQLite via `WaveformRepository` so repeat plays skip re-decoding.
 - Compile check: `./gradlew composeApp:jvmMainClasses` (NOT `composeApp:classes` — that task doesn't exist)
 - Lint: `./gradlew detekt` — wired into `check` for every module. Pre-existing findings are grandfathered per-module in `config/detekt/baseline/*.xml`; only new findings fail the build. Regenerate a module's baseline after deliberately accepting new findings: `./gradlew :module:path:detektBaseline`.
 - Tests: `./gradlew :core:data:jvmTest :core:mukklet:jvmTest` — only `core:data` and `core:mukklet` have a `jvmTest` source set so far; other modules have none yet.
+- Build a `.deb` for the owner to test: `./gradlew :composeApp:packageDeb` →
+  `composeApp/build/compose/binaries/main/deb/mukk_<version>_amd64.deb`. It carries the current
+  `version-name`, the same as the installed release, so install it with `sudo dpkg -i <file>`.
 - Run the app: `./gradlew :composeApp:run`. In the background (`run_in_background`), the wrapper
   process exits quickly (code 0) once the app JVM has launched — that's not the app closing,
   it's a separate long-lived `java ... com.grappim.mukk.MainKt` process (check with `ps aux`).
