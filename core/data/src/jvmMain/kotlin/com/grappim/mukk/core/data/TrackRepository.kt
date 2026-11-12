@@ -4,6 +4,7 @@ import com.grappim.mukk.core.model.MediaTrackData
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.core.like
 import org.jetbrains.exposed.v1.jdbc.deleteAll
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
@@ -133,6 +134,15 @@ class TrackRepository(
         }
     }
 
+    suspend fun deleteByPaths(filePaths: Collection<String>): Int = withContext(Dispatchers.IO) {
+        transaction(databaseInit.database) {
+            // Chunked: one IN (...) per chunk keeps each statement under SQLite's bound-variable limit.
+            filePaths.chunked(DELETE_CHUNK_SIZE).sumOf { chunk ->
+                MediaTracks.deleteWhere { filePath inList chunk }
+            }
+        }
+    }
+
     suspend fun findByPathPrefix(folderPath: String): List<MediaTrackData> = withContext(Dispatchers.IO) {
         transaction(databaseInit.database) {
             MediaTrackEntity.find(
@@ -147,5 +157,7 @@ class TrackRepository(
         }
     }
 }
+
+private const val DELETE_CHUNK_SIZE = 500
 
 private fun pathPrefixPattern(folderPath: String) = "${folderPath.trimEnd('/')}/%"

@@ -35,6 +35,14 @@ class FileScanner(
             if (scanSingleFile(file, existingByPath[file.absolutePath])) count++
             onProgress?.invoke(index + 1, total)
         }
+
+        // Rows for files renamed or deleted while the app was not watching.
+        val foundPaths = audioFiles.mapTo(HashSet()) { it.absolutePath }
+        val stalePaths = existingByPath.keys - foundPaths
+        if (stalePaths.isNotEmpty()) {
+            val removed = trackRepository.deleteByPaths(stalePaths)
+            MukkLogger.info("FileScanner", "Removed $removed stale tracks under ${directory.absolutePath}")
+        }
         count
     }
 
