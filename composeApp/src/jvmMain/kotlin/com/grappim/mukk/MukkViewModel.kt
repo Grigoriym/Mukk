@@ -655,6 +655,8 @@ class MukkViewModel(
 
     private fun buildCachedEntries(tracks: List<MediaTrackData>): ImmutableList<FileEntry> =
         tracks
+            // The DB can hold rows for files that are gone until the next scan prunes them.
+            .filter { File(it.filePath).exists() }
             .map { track ->
                 FileEntry(file = File(track.filePath), isDirectory = false, name = track.title, trackData = track)
             }
