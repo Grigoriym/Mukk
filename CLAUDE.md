@@ -83,14 +83,15 @@ core/data/src/jvmMain/kotlin/com/grappim/mukk/core/data/
 ├── DatabaseInit.kt        # SQLite connection + schema creation; takes an optional `dbFile`
 │                            (defaults to ~/.local/share/mukk/library.db) so tests can point it elsewhere
 ├── MediaTracks.kt, MediaTrackEntity.kt   # Exposed table + entity + MediaTrackData.toData()
-├── TrackRepository.kt     # DB ops: getAllTracks, findByPath, existsByPath, insertIfAbsent, deleteByPath, deleteAll, findByPathPrefix, deleteByPathPrefix
+├── TrackRepository.kt     # DB ops: getAllTracks, findByPath, existsByPath, insertIfAbsent, deleteByPath, deleteByPaths, deleteAll, findByPathPrefix, deleteByPathPrefix
 ├── WaveformCacheTable.kt, WaveformCacheEntity.kt, WaveformRepository.kt  # cached waveform peaks per track; also deleteByPathPrefix
 ├── PlaylistsTable.kt, PlaylistEntity.kt, PlaylistRepository.kt  # named, saved folder links (see docs/issues/2026-09-15-playlists-and-queue.md),
 │                            plus each playlist's last folder-tree position (`selected_path`, `expanded_paths`)
 └── PreferencesManager.kt  # Simple key-value prefs (~/.local/share/mukk/preferences.properties)
 
 core/data/src/jvmTest/kotlin/com/grappim/mukk/core/data/
-└── PlaylistRepositoryTest.kt  # first test in the repo; `./gradlew :core:data:jvmTest`
+├── PlaylistRepositoryTest.kt  # first test in the repo; `./gradlew :core:data:jvmTest`
+└── TrackRepositoryTest.kt
 
 core/player/src/jvmMain/kotlin/com/grappim/mukk/core/model/player/
 ├── AudioPlayer.kt         # GStreamer PlayBin wrapper: position polling, device enumeration/selection
@@ -129,6 +130,12 @@ in SQLite via `WaveformRepository` so repeat plays skip re-decoding.
 - Audio file extensions: `mp3, flac, ogg, wav, aac, opus, m4a` (defined in both `FileScanner` and `MukkViewModel`)
 - Folder tree hides folders with no audio files (recursive check via `containsAudioFiles()` using `walkTopDown()` — can be slow on huge trees, may need caching)
 - Track list enriches audio files with DB metadata (title, artist, duration) when available; shows filename + "-" for unscanned files
+- The track list has two builders that can disagree. A folder click (`loadSelectedFolderEntries`)
+  walks the disk and looks up DB data per file. Startup and a playlist tab switch
+  (`activatePlaylist` → `buildCachedEntries`) list DB rows by path prefix, so they must drop rows
+  whose file is gone. `FileScanner.scan()` deletes rows for files it no longer finds under the
+  scanned folder; renames made while Mukk was closed left stale rows that showed as duplicates
+  (`docs/issues/2026-11-12-startup-track-list-duplicates.md`)
 - `getSubfolders()` is passed as a callback to FolderTreePanel and called inside `remember{}` — synchronous file I/O, memoized on `expandedPaths` changes
 - Native file picker: tries zenity → kdialog → Swing JFileChooser fallback
 - `combinedClickable` (from `ExperimentalFoundationApi`) used in both `FolderTreePanel` and `TrackListPanel` for single/double-click differentiation

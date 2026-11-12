@@ -15,3 +15,7 @@ Real problems noticed outside the task at hand — not fixed inline, not dropped
   (`core/mukklet/src/jvmMain/kotlin/com/grappim/mukk/core/mukklet/DisplayLink.kt`, the
   `catch (e: IOException)` in `connectLoop`). Log `e` (or `e.cause`) instead of `e.message`.
   Seen 2026-09-27 during the Mukklet Part 3 reconnect check.
+- **`waveform_cache` keeps rows for files that no longer exist.** `FileScanner.scan()` now prunes
+  stale `media_tracks` rows (`core/scanner/.../FileScanner.kt`, after the walk), but not their
+  `waveform_cache` rows. `WaveformRepository` only has `deleteByPathPrefix`. Invisible to the user;
+  the DB just grows. Seen 2026-11-12 (`docs/issues/2026-11-12-startup-track-list-duplicates.md`).
